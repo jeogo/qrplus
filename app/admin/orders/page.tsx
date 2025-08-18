@@ -160,7 +160,7 @@ export default function AdminOrdersPage() {
     }
   }, [stream.state, loading])
 
-  const nextStatuses = (status:string) => STATUS_FLOW[status] || []
+  // Removed unused helper nextStatuses (TS lint cleanup)
 
   const transition = async (id:number, newStatus:string) => {
     if (!id || !newStatus) return
@@ -342,7 +342,7 @@ function AdminOrderCard({ order, items, language, onTransition, onRemove, onLoad
     }
   }, [loadedDetails, items.length, onLoadDetails])
 
-  const nextStatuses = (status: string) => STATUS_FLOW[status] || []
+  const getNextStatuses = (status: string) => STATUS_FLOW[status] || []
 
   return (
     <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
@@ -407,7 +407,7 @@ function AdminOrderCard({ order, items, language, onTransition, onRemove, onLoad
         {/* Quick Action Buttons */}
         <div className="flex gap-2 flex-wrap">
           {/* Status transition buttons */}
-          {nextStatuses(order.status).map(ns => (
+          {getNextStatuses(order.status).map(ns => (
             <Button 
               key={ns} 
               size="sm"

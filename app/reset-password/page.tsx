@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [lang, setLang] = useState<AuthLang>(() => (typeof window !== 'undefined' ? (localStorage.getItem('admin-language') as AuthLang) || 'ar' : 'ar'))
+  const [lang] = useState<AuthLang>(() => (typeof window !== 'undefined' ? (localStorage.getItem('admin-language') as AuthLang) || 'ar' : 'ar'))
   const t = authI18n[lang]
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,8 +24,8 @@ export default function ResetPasswordPage() {
     try {
       await sendPasswordResetEmail(auth, email.trim())
       setMessage(t.successSent)
-    } catch (e: any) {
-      const code: string | undefined = e?.code
+    } catch (e) {
+      const code = (e as { code?: string })?.code
       if (code === 'auth/invalid-email') setError(t.invalidEmail)
       else if (code === 'auth/user-not-found') setError(t.userNotFound)
       else if (code === 'auth/too-many-requests') setError(t.tooManyAttempts)

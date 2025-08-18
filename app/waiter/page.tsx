@@ -297,8 +297,6 @@ export default function WaiterPage() {
                 soundEnabled={soundEnabled}
                 onToggleSound={()=> setSoundEnabled(s=> !s)}
                 onRefresh={handleRefresh}
-                onExpandAll={()=> {}} // No-op since items are always visible
-                onCollapseAll={()=> {}} // No-op since items are always visible
                 pendingCount={activeOrders.length}
                 onBulkAction={async ()=>{
                   for (const o of activeOrders) { await handleServe(o.id) }

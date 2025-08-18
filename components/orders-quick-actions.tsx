@@ -8,15 +8,13 @@ interface OrdersQuickActionsProps {
   soundEnabled: boolean
   onToggleSound: () => void
   onRefresh: () => void
-  onExpandAll?: () => void // Keep for compatibility but not used
-  onCollapseAll?: () => void // Keep for compatibility but not used
   pendingCount: number
   onBulkAction?: () => void
   bulkActionLabel?: string
   loading?: boolean
 }
 
-export function OrdersQuickActions({ role, soundEnabled, onToggleSound, onRefresh, onExpandAll, onCollapseAll, pendingCount, onBulkAction, bulkActionLabel, loading }: OrdersQuickActionsProps) {
+export function OrdersQuickActions({ role, soundEnabled, onToggleSound, onRefresh, pendingCount, onBulkAction, bulkActionLabel, loading }: OrdersQuickActionsProps) {
   return (
     <div className="flex flex-wrap gap-2 items-center">
       <Button onClick={onRefresh} variant="outline" size="sm" className="flex items-center gap-1">

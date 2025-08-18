@@ -250,8 +250,6 @@ export default function KitchenPage() {
                 soundEnabled={soundEnabled}
                 onToggleSound={()=> setSoundEnabled(s=> !s)}
                 onRefresh={handleRefresh}
-                onExpandAll={()=> {}} // No-op since items are always visible
-                onCollapseAll={()=> {}} // No-op since items are always visible
                 pendingCount={activeOrders.length}
                 onBulkAction={async ()=>{
                   for (const o of activeOrders) { await handleMarkReady(o.id) }
