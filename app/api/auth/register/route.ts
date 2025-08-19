@@ -118,8 +118,7 @@ export async function POST(req: NextRequest) {
     })
 
     // JWT carries numeric ids
-  // Newly created users are unverified until they click verification link
-  const token = createToken({ sub: uid, email: finalEmail, accountId: String(accountIdNum), accountNumericId: accountIdNum, role: 'admin', username, emailVerified: false })
+  const token = createToken({ sub: uid, email: finalEmail, accountId: String(accountIdNum), accountNumericId: accountIdNum, role: 'admin', username })
     const res = NextResponse.json({ success: true, user: { id: userIdNum, firebase_uid: uid, email: finalEmail, account_id: accountIdNum, role: 'admin', username } })
     res.cookies.set('auth_token', token, {
       httpOnly: true,

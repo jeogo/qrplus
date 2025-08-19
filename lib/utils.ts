@@ -72,11 +72,11 @@ export function validatePassword(password: string): boolean {
 }
 
 export function generateQRCodeUrl(tableId: string, accountId: string): string {
-  const baseUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://your-domain.com' 
+  const baseUrl = process.env.NODE_ENV === 'production'
+    ? 'https://your-domain.com'
     : 'http://localhost:3000'
-  
-  return `${baseUrl}/menu/${accountId}-${tableId}`
+  // Updated pattern: /menu/{accountId}/{tableId}
+  return `${baseUrl}/menu/${accountId}/${tableId}`
 }
 
 export function generateTableNumber(): number {

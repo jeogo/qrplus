@@ -10,7 +10,7 @@ A modern multi-role restaurant ordering platform built with Next.js 14 (App Rout
 - Push notifications (FCM) across full order lifecycle (new, approved, ready, served, cancelled) with per-role localization
 - Privacy-aware client push: customer devices receive anonymized titles (no order numbers) and deep-link to their table page
 - Authentication (session endpoint cached client-side) & role-based UI routing
-- Public menu view per table (products, categories, active orders summary) via `/menu/[tableId]` (premium modern UI, responsive, RTL-aware, optimized images)
+- Public menu view via nested path `/menu/[restaurantId]/[tableId]` (premium modern UI, responsive, RTL-aware, optimized images)
 - Upload signing endpoint (dynamic) for media (Cloudinary integration placeholder)
 - Theming (dark/light) via CSS variables + `next-themes`
 - Complete bilingual support (Arabic RTL & French)
@@ -42,7 +42,7 @@ app/
   kitchen/                  # Kitchen dashboard with audio alerts
   waiter/                   # Waiter dashboard with audio alerts
   auth/                     # Auth (login/register UI)
-  menu/[tableId]/           # Public menu & order status per table
+  menu/[restaurantId]/[tableId]/ # Public menu & order status (nested identifiers)
   api/                      # REST & streaming endpoints
     orders/                 # CRUD + batch details
     public/                 # Public (no auth) menu + orders stream
@@ -138,8 +138,10 @@ Planned test coverage includes:
 | `/api/orders/details-batch` | POST | Batch fetch order items/details |
 | `/api/stream/orders` | GET (SSE) | Private real-time order events |
 | `/api/public/orders/stream` | GET (SSE) | Public stream (limited scope) |
-| `/api/public/menu/[tableId]/products` | GET | Products for a table context |
-| `/api/public/menu/[tableId]/orders` | GET | Active orders summary (public) |
+| `/api/public/menu/[restaurantId]/[tableId]/categories` | GET | Active categories with available products |
+| `/api/public/menu/[restaurantId]/[tableId]/products?category_id=` | GET | Products in a category (available only) |
+| `/api/public/menu/[restaurantId]/[tableId]/meta` | GET | Restaurant/table public metadata |
+| `/api/public/menu/[restaurantId]/[tableId]/orders` | POST | Create a new public order |
 | `/api/uploads/sign` | POST | Cloudinary upload signature (dynamic) |
 | `/api/auth/login` | POST | Authenticate user |
 | `/api/auth/me` | GET | Session validation (cached client-side) |

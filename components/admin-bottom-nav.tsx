@@ -78,11 +78,11 @@ export function AdminBottomNav() {
 
   const getActiveItem = () => {
     if (pathname === "/admin/dashboard") return "dashboard"
-    if (pathname.startsWith("/admin/menu")) return "menu"
-    if (pathname.startsWith("/admin/tables")) return "tables"
-    if (pathname.startsWith("/admin/users")) return "users"
-    if (pathname.startsWith("/admin/orders")) return "orders"
-    if (pathname.startsWith("/admin/settings")) return "settings"
+    if (pathname === "/admin/menu") return "menu"
+    if (pathname === "/admin/tables") return "tables"
+    if (pathname === "/admin/users") return "users"
+    if (pathname === "/admin/orders") return "orders"
+    if (pathname === "/admin/settings") return "settings"
     return "dashboard"
   }
 

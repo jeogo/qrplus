@@ -127,11 +127,6 @@ function LoginForm({ onSuccess, language, isLoading, setIsLoading }: LoginProps)
           </div>
         )}
       </Button>
-      <div className="text-center">
-        <a href="/reset-password" className="text-sm text-slate-600 hover:text-slate-800 underline underline-offset-4">
-          {currentLang.forgotPassword}
-        </a>
-      </div>
     </form>
   )
 }
@@ -213,9 +208,9 @@ function RegisterForm({ language, isLoading, setIsLoading }: RegisterProps) {
       })
       const result = await response.json()
       if (result.success) {
-        // Immediately redirect to verification flow; middleware will also enforce
-        console.log('Auth: Registration successful, redirecting to verify-email')
-        window.location.href = '/verify-email'
+        // Redirect to admin dashboard after successful registration
+        console.log('Auth: Registration successful, redirecting to admin dashboard')
+        window.location.href = '/admin/dashboard'
       } else {
         setErrors({ general: result.error })
       }

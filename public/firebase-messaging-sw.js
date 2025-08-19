@@ -109,9 +109,9 @@ self.addEventListener('notificationclick', (event) => {
   if (role === 'kitchen') url = '/kitchen'
   else if (role === 'waiter') url = '/waiter'
   else if (role === 'client') {
-    // Redirect clients directly to their table public menu page
     const tableId = data.tableId || data.table_id
-    if (tableId) url = `/menu/${tableId}`
+    const accountId = data.account_id || data.accountId
+    if (tableId && accountId) url = `/menu/${accountId}/${tableId}`
     else url = '/'
   }
   event.notification.close()

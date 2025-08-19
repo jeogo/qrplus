@@ -6,7 +6,6 @@ export interface SessionUser {
   accountNumericId?: number
   role: string
   username?: string
-  emailVerified?: boolean
 }
 
 const SESSION_TTL_MS = 60_000 // 60s cache

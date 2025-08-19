@@ -51,12 +51,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'TABLE_NUMBER_EXISTS' }, { status: 409 })
     }
 
-    const id = await nextSequence('tables')
+  const id = await nextSequence('tables')
     const now = new Date().toISOString()
     const host = body.__host_override || (req.headers.get('x-forwarded-host') || req.headers.get('host'))
     const proto = req.headers.get('x-forwarded-proto') || 'https'
     const origin = host ? `${proto}://${host}` : ''
-    const qr_code = origin ? `${origin}/menu/${id}` : `/menu/${id}`
+  // New QR code pattern includes restaurant (account) id segment for uniqueness: /menu/{restaurantId}/{tableId}
+  const qr_code = origin ? `${origin}/menu/${accountIdNum}/${id}` : `/menu/${accountIdNum}/${id}`
     const doc = { id, account_id: accountIdNum, table_number, qr_code, created_at: now, updated_at: now }
     await admin.firestore().collection('tables').doc(String(id)).set(doc)
     return NextResponse.json({ success: true, data: doc }, { status: 201 })

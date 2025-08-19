@@ -69,10 +69,11 @@ export function PushBootstrap() {
         // If client role, optionally redirect user to their table page when ready/served (in foreground)
         if (data.role === 'client' && (type === 'order.ready' || type === 'order.served')) {
           const tableId = data.tableId || data.table_id
-          if (tableId && typeof window !== 'undefined') {
-            // Avoid interrupting current navigation if already on that table
-            if (!window.location.pathname.includes(`/menu/${tableId}`)) {
-              window.location.href = `/menu/${tableId}`
+          const accountId = data.account_id || data.accountId
+          if (tableId && typeof window !== 'undefined' && accountId) {
+            const target = `/menu/${accountId}/${tableId}`
+            if (!window.location.pathname.startsWith(target)) {
+              window.location.href = target
             }
           }
         }

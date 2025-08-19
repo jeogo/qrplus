@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       if (!ok) return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
       const account_id: number | undefined = data.account_id
       if (typeof account_id !== 'number') return NextResponse.json({ success: false, error: 'Account link missing' }, { status: 500 })
-  const token = createToken({ sub: userDoc.id, email: credentialInput, accountId: String(account_id), accountNumericId: account_id, role: data.role || 'admin', username: data.username, emailVerified: data.email_verified === true })
+  const token = createToken({ sub: userDoc.id, email: credentialInput, accountId: String(account_id), accountNumericId: account_id, role: data.role || 'admin', username: data.username })
       const res = NextResponse.json({ success: true, user: { id: data.id, firebase_uid: userDoc.id, email: credentialInput, account_id, role: data.role || 'admin', username: data.username } })
       res.cookies.set('auth_token', token, cookieOpts())
       return res
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       const account_id: number | undefined = data.account_id
       if (typeof account_id !== 'number') return NextResponse.json({ success: false, error: 'Account link missing' }, { status: 500 })
       const role: string = data.role || 'admin'
-  const token = createToken({ sub: doc.id, email, accountId: String(account_id), accountNumericId: account_id, role, username: data.username, emailVerified: data.email_verified === true })
+  const token = createToken({ sub: doc.id, email, accountId: String(account_id), accountNumericId: account_id, role, username: data.username })
       const res = NextResponse.json({ success: true, user: { id: data.id, firebase_uid: doc.id, email, account_id, role, username: data.username } })
       res.cookies.set('auth_token', token, cookieOpts())
       return res
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     const role: string = staffData.role || 'waiter'
     const email = `${credentialInput}@staff.local` // synthetic (not used for contact)
     const sub = `staff-${staffData.id}`
-  const token = createToken({ sub, email, accountId: String(staffAccount), accountNumericId: staffAccount, role, username: staffData.username, emailVerified: true })
+  const token = createToken({ sub, email, accountId: String(staffAccount), accountNumericId: staffAccount, role, username: staffData.username })
     const res = NextResponse.json({ success: true, user: { id: staffData.id, email, account_id: staffAccount, role, username: staffData.username, staff: true } })
     res.cookies.set('auth_token', token, cookieOpts())
     return res

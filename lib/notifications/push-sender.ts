@@ -131,7 +131,7 @@ async function sendBatches(kind: PushKind, order: BasicOrder, roles: string[]): 
           },
           fcmOptions: {
             // When clicked open appropriate page; client redirected to its table
-            link: g.role === 'kitchen' ? '/kitchen' : (g.role === 'waiter' ? '/waiter' : (g.role === 'client' ? `/menu/${order.table_id}` : '/admin/orders'))
+            link: g.role === 'kitchen' ? '/kitchen' : (g.role === 'waiter' ? '/waiter' : (g.role === 'client' ? (order.account_id ? `/menu/${order.account_id}/${order.table_id}` : `/menu/${order.table_id}`) : '/admin/orders'))
           }
         },
         data: {

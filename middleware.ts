@@ -5,7 +5,7 @@ const ADMIN_PREFIX = '/admin'
 const KITCHEN_PREFIX = '/kitchen'
 const WAITER_PREFIX = '/waiter'
 
-interface DecodedToken { role?: string; emailVerified?: boolean }
+interface DecodedToken { role?: string }
 
 function decodeToken(token?: string): DecodedToken | null {
   if (!token) return null
@@ -24,7 +24,6 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get('auth_token')?.value
   const decoded = decodeToken(token)
   const role = decoded?.role
-  const emailVerified = decoded?.emailVerified
 
   // Auth page: redirect if already logged in
   if (pathname === '/auth' && role) {
@@ -33,13 +32,6 @@ export function middleware(req: NextRequest) {
     else if (role === 'kitchen') url.pathname = KITCHEN_PREFIX
     else url.pathname = '/admin/dashboard'
     return NextResponse.redirect(url)
-  }
-
-  // Email verification gate (only for admin area for now)
-  if (pathname.startsWith(ADMIN_PREFIX) && pathname !== '/verify-email') {
-    if (decoded && role === 'admin' && emailVerified === false) {
-      const url = req.nextUrl.clone(); url.pathname = '/verify-email'; return NextResponse.redirect(url)
-    }
   }
 
   // Require auth for protected zones
@@ -65,5 +57,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/auth', '/kitchen', '/waiter', '/verify-email']
+  matcher: ['/admin/:path*', '/auth', '/kitchen', '/waiter']
 }

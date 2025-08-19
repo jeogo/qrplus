@@ -10,7 +10,6 @@ export interface AuthTokenPayload {
   accountNumericId?: number
   role: string
   username?: string
-  emailVerified?: boolean
   iat?: number
 }
 
