@@ -1,6 +1,5 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -141,13 +140,6 @@ const translations = {
 
 // Status progression reused across UI elements
 const ORDER_STATUSES: Order['status'][] = ['pending', 'accepted', 'preparing', 'ready', 'served']
-
-// CSS keyframes for animations
-const keyframes = {
-  fadeIn: '@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }',
-  pulse: '@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }',
-  shimmer: '@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }'
-}
 
 // Enhanced atomic components for premium UI
 const Skeleton = ({ className }: { className?: string }) => (
@@ -314,7 +306,8 @@ export default function RestaurantTableMenuPage() {
   const [submitting, setSubmitting] = useState(false)
   const [addingToCart, setAddingToCart] = useState<number | null>(null)
   const [search, setSearch] = useState('')
-  const [errorMeta, setErrorMeta] = useState<string | null>(null)
+  // Silent error handling for meta
+  const [, setErrorMeta] = useState<string | null>(null)
   const [errorCats, setErrorCats] = useState<string | null>(null)
   const [errorProducts, setErrorProducts] = useState<string | null>(null)
   
