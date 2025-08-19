@@ -8,7 +8,7 @@ import { sendOrderNewPush } from '@/lib/notifications/push-sender'
 // GET /api/orders?status=&table_id=
 export async function GET(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     const { searchParams } = new URL(req.url)
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 // POST /api/orders  Body: { table_id:number, items:[{product_id, quantity}] }
 export async function POST(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })

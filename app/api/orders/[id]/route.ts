@@ -11,7 +11,7 @@ import { sendOrderReadyPush, sendOrderApprovedPush, sendOrderServedPush, sendOrd
 // GET /api/orders/:id  -> order + items
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     // Allow admin, waiter, and kitchen staff to view order details
     if (sess.role !== 'admin' && sess.role !== 'waiter' && sess.role !== 'kitchen') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 // PATCH /api/orders/:id  Body: { status }
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     
     // Allow admin for all transitions, waiter only for serving (ready → served), kitchen only for prep (approved → ready)
     if (sess.role !== 'admin' && sess.role !== 'waiter' && sess.role !== 'kitchen') {
@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // DELETE /api/orders/:id  (only if pending)
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     const idNum = Number(params.id)

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 // SSE stream of orders changes for an account
 export async function GET(req: NextRequest) {
-  const sess = requireSession()
+  const sess = await requireSession()
   const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
   const { searchParams } = new URL(req.url)
   const statusFilter = searchParams.get('status') || ''

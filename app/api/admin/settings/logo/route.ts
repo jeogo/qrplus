@@ -5,12 +5,13 @@ import { requireSession } from '@/lib/auth/session'
 // POST /api/admin/settings/logo - Upload restaurant logo
 export async function POST(req: NextRequest) {
   try {
-    const sess = requireSession()
-    if (sess.role !== 'admin') {
+  // Require authenticated admin session
+  const sess = await requireSession()
+  if (sess.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+  const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     }

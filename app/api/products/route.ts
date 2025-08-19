@@ -5,7 +5,7 @@ import { nextSequence } from '@/lib/firebase/sequences'
 
 export async function GET(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     const url = new URL(req.url)
     const categoryId = url.searchParams.get('category_id')
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const body = await req.json()
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)

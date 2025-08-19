@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body.token !== 'string' || !body.token) {
       return NextResponse.json({ success:false, error:'INVALID_TOKEN' }, { status:400 })
     }
-    const role = typeof body.role === 'string' ? body.role : sess.role
+    const role = typeof body.role === 'string' ? body.role : (await sess).role
     const lang = body.lang === 'ar' ? 'ar' : body.lang === 'fr' ? 'fr' : 'fr'
     const db = admin.firestore()
     const ref = db.collection('device_tokens').doc(body.token)

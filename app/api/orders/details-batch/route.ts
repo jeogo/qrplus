@@ -5,7 +5,7 @@ import { requireSession } from '@/lib/auth/session'
 // POST /api/orders/details-batch  Body: { ids:number[] }
 export async function POST(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin' && sess.role !== 'waiter' && sess.role !== 'kitchen') {
       return NextResponse.json({ success:false, error:'Forbidden' }, { status:403 })
     }

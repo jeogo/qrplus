@@ -41,7 +41,7 @@ interface AccountData {
 // GET /api/admin/settings - Get restaurant settings
 export async function GET() {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
@@ -100,7 +100,7 @@ export async function GET() {
 // PATCH /api/admin/settings - Update restaurant settings
 export async function PATCH(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }

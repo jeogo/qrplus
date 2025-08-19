@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth/session'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const idNum = Number(params.id)
     if (!idNum) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const idNum = Number(params.id)
     if (!idNum) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })

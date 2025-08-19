@@ -5,8 +5,8 @@ export interface SessionContext extends AuthTokenPayload {
   accountNumericId?: number
 }
 
-export function getSession(): SessionContext | null {
-  const cookieStore = cookies()
+export async function getSession(): Promise<SessionContext | null> {
+  const cookieStore = await cookies()
   const token = cookieStore.get('auth_token')?.value
   if (!token) return null
   const payload = verifyToken(token)
@@ -14,8 +14,8 @@ export function getSession(): SessionContext | null {
   return payload
 }
 
-export function requireSession(): SessionContext {
-  const sess = getSession()
+export async function requireSession(): Promise<SessionContext> {
+  const sess = await getSession()
   if (!sess) {
     const err = new Error('Unauthenticated') as Error & { status?: number }
     err.status = 401

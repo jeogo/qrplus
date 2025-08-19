@@ -54,7 +54,7 @@ function sanitize(u: RawUserDoc): StaffUser {
 
 export async function GET() {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     const snap = await admin.firestore().collection('staff_users').where('account_id', '==', accountId).get()
@@ -68,7 +68,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const sess = requireSession()
+    const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
 
