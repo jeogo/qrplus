@@ -84,9 +84,6 @@ types/                      # TypeScript definitions
 
 ## 🚀 Development
 Prerequisites:
-- Node.js >= 18.18
-- Firebase project (Firestore + service account for admin SDK)
-- Cloudinary credentials (if enabling uploads)
 
 Install & Run:
 ```bash
@@ -103,6 +100,32 @@ Type Check & Lint:
 npm run type-check
 npm run lint
 ```
+
+## Seeding Demo Data
+
+You can populate the Firestore database with a demo Algerian restaurant (admin + waiter + kitchen staff, tables, categories, products) using the seed script.
+
+1. Ensure Firebase Admin credentials are set in environment variables:
+  - FIREBASE_PROJECT_ID
+  - FIREBASE_CLIENT_EMAIL
+  - FIREBASE_PRIVATE_KEY (wrap multiline key with quotes and replace newlines with \n or use a .env.local file)
+2. (Optional) Override defaults:
+  - SEED_ADMIN_USERNAME
+  - SEED_ADMIN_PASSWORD
+  - SEED_RESTAURANT_NAME
+3. Run:
+  ```bash
+  npm run seed
+  ```
+4. The script is idempotent: if the admin username already exists it reuses that account and only adds missing data.
+
+Data created:
+- accounts + system_settings (language fr, currency DZD)
+- users (admin)
+- staff_users (garçon1 waiter, cuisine1 kitchen)
+- tables (1..3)
+- categories & products with Algerian dishes (prices in DZD)
+
 
 ## 🔐 Environment Variables (Expected)
 (Define these in `.env.local` – names indicative; adjust to actual implementation.)
