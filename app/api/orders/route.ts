@@ -26,10 +26,16 @@ export async function GET(req: NextRequest) {
     q = q.orderBy('created_at', 'desc')
     const snap = await q.get()
 
-    const toIso = (v: any): string | undefined => {
+    type FirestoreTimestampLike = { toDate?: () => Date; seconds?: number; nanoseconds?: number } | string | null | undefined
+    const toIso = (v: FirestoreTimestampLike): string | undefined => {
       if (!v) return undefined
-      if (typeof v.toDate === 'function') return v.toDate().toISOString()
-      if (typeof v.seconds === 'number') return new Date(v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6)).toISOString()
+      if (typeof v === 'object' && v !== null && 'toDate' in v && typeof v.toDate === 'function') {
+        return v.toDate().toISOString()
+      }
+      if (typeof v === 'object' && v !== null && 'seconds' in v && typeof (v as { seconds?: unknown }).seconds === 'number') {
+        const ts = v as { seconds: number; nanoseconds?: number }
+        return new Date(ts.seconds * 1000 + Math.floor((ts.nanoseconds || 0) / 1e6)).toISOString()
+      }
       if (typeof v === 'string') return v
       return undefined
     }
@@ -108,7 +114,7 @@ export async function POST(req: NextRequest) {
     const daily_number = await nextDailySequence(accountId, dateKey)
 
     const batch = db.batch()
-    const orderDoc = { id: orderId, account_id: accountId, table_id, waiter_id: undefined, status: 'pending', total, created_at: now, updated_at: now, daily_number }
+  const orderDoc = { id: orderId, account_id: accountId, table_id, waiter_id: undefined, status: 'pending', total, created_at: now, updated_at: now, daily_number, pushed_statuses: ['new'] as string[] }
     batch.set(db.collection('orders').doc(String(orderId)), orderDoc)
 
     for (const it of orderItems) {

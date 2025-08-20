@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw, RotateCcw } from "lucide-react"
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { AdminActionOverlay } from "@/components/admin-action-overlay"
@@ -14,6 +14,7 @@ import { SystemStatusCard } from './components/system-status-card'
 import { RestaurantInfoForm } from './components/restaurant-info-form'
 import { OfflineAlert } from './components/offline-alert'
 import { toast } from 'sonner'
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 
 interface RestaurantSettings {
   id: number
@@ -40,6 +41,9 @@ export default function AdminSettingsPage() {
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  // reset daily number dialog state (must be before any early returns)
+  const [resetOpen,setResetOpen] = useState(false)
+  const [resetLoading,setResetLoading] = useState(false)
   const action = useAdminActionOverlay(language)
 
   // Get localized text
@@ -217,6 +221,19 @@ export default function AdminSettingsPage() {
     )
   }
 
+  const handleResetDaily = async () => {
+    setResetLoading(true)
+    try {
+      const res = await fetch('/api/admin/maintenance/reset-daily-number',{ method:'POST', headers:{'Content-Type':'application/json'} })
+      const json = await res.json()
+      if(!json.success) throw new Error(json.error)
+      toast.success(language==='ar'? L.resetSuccess : L.resetSuccess)
+      setResetOpen(false)
+    } catch {
+      toast.error(language==='ar'? L.resetFailed : L.resetFailed)
+    } finally { setResetLoading(false) }
+  }
+
   return (
     <AdminLayout>
       <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
@@ -232,20 +249,43 @@ export default function AdminSettingsPage() {
                 <h1 className="text-xl font-semibold text-slate-900 mb-1">{L.manageSettings}</h1>
                 <p className="text-sm text-slate-500">{L.systemConfiguration}</p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchSettings}
-                disabled={isLoading}
-                className="flex items-center gap-2 border-slate-200 hover:bg-slate-50"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {L.refresh}
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchSettings}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 border-slate-200 hover:bg-slate-50"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {L.refresh}
+                </Button>
+                <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4" />
+                      {L.resetDailyNumber}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className={language==='ar'? 'rtl text-right':'ltr'}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{L.confirmResetDailyTitle}</AlertDialogTitle>
+                      <AlertDialogDescription>{L.confirmResetDailyDesc}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className={language==='ar'? 'rtl flex-row-reverse':'ltr'}>
+                      <AlertDialogCancel disabled={resetLoading}>{L.cancel}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResetDaily} disabled={resetLoading} className="bg-red-600 hover:bg-red-700">
+                        {resetLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {L.confirm}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </div>
 

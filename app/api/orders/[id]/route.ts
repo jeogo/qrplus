@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     if (!Number.isInteger(idNum)) return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    const db = admin.firestore()
+  const db = admin.firestore()
     const orderRef = db.collection('orders').doc(String(idNum))
     const orderSnap = await orderRef.get()
     if (!orderSnap.exists) return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
@@ -59,14 +59,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return NextResponse.json({ success: false, error: 'INVALID_STATUS' }, { status: 400 })
     }
 
-    const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    const db = admin.firestore()
-    const accountSnap = await db.collection('accounts').doc(String(accountId)).get()
+  const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+  const dbTx = admin.firestore()
+  const accountSnap = await dbTx.collection('accounts').doc(String(accountId)).get()
     if (!accountSnap.exists || accountSnap.data()?.active === false) {
       return NextResponse.json({ success: false, error: 'SYSTEM_INACTIVE' }, { status: 423 })
     }
 
-    const ref = db.collection('orders').doc(String(idNum))
+  const ref = dbTx.collection('orders').doc(String(idNum))
     const snap = await ref.get()
     if (!snap.exists) return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
 
@@ -86,17 +86,34 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     const updated_at = new Date().toISOString()
     const last_status_at = updated_at
-    await ref.update({ status, updated_at, last_status_at })
 
-    if (status === 'served') {
-      await mirrorOrderServe(accountId, { id: idNum, table_id: data.table_id, status, updated_at, last_status_at })
-      sendOrderServedPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId }).catch(console.error)
-      try { await archiveOrder(accountId, idNum, 'served') } catch (e) { console.error('[ARCHIVE][SERVE] failed', e) }
-    } else {
-      await mirrorOrderUpdate(accountId, { id: idNum, table_id: data.table_id, status, updated_at, last_status_at })
-      if (status === 'approved') sendOrderApprovedPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId }).catch(console.error)
-      if (status === 'ready') sendOrderReadyPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId }).catch(console.error)
-    }
+    // Firestore transaction for idempotent push (pushed_statuses array)
+  await dbTx.runTransaction(async tx => {
+      const snapInside = await tx.get(ref)
+      if (!snapInside.exists) throw new Error('ORDER_NOT_FOUND')
+  const docData = snapInside.data() as { pushed_statuses?: string[]; daily_number?: number; table_id?: number }
+  const pushed: string[] = Array.isArray(docData.pushed_statuses) ? docData.pushed_statuses : []
+      const pushKey = status
+      // Update status + timestamps regardless
+      tx.update(ref, { status, updated_at, last_status_at, pushed_statuses: pushed.includes(pushKey)? pushed : [...pushed, pushKey] })
+      // Decide push sending after transaction based on whether newly added
+      const newlyAdded = !pushed.includes(pushKey)
+      ;(async()=>{
+        try {
+          if (status === 'served') {
+            await mirrorOrderServe(accountId, { id: idNum, table_id: data.table_id, status, updated_at, last_status_at })
+            if (newlyAdded) await sendOrderServedPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId })
+            try { await archiveOrder(accountId, idNum, 'served') } catch (e) { console.error('[ARCHIVE][SERVE] failed', e) }
+          } else {
+            await mirrorOrderUpdate(accountId, { id: idNum, table_id: data.table_id, status, updated_at, last_status_at })
+            if (newlyAdded) {
+              if (status === 'approved') await sendOrderApprovedPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId })
+              if (status === 'ready') await sendOrderReadyPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId })
+            }
+          }
+        } catch(e){ console.error('[PUSH][ASYNC_STATUS]', e) }
+      })()
+    })
 
     return NextResponse.json({ success: true, data: { ...data, status, updated_at, last_status_at, archived: status === 'served' } })
   } catch (err) {
@@ -114,14 +131,14 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     const idNum = Number(id)
     if (!Number.isInteger(idNum)) return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
 
-    const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    const db = admin.firestore()
-    const accountSnap = await db.collection('accounts').doc(String(accountId)).get()
+  const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+  const dbBase = admin.firestore()
+  const accountSnap = await dbBase.collection('accounts').doc(String(accountId)).get()
     if (!accountSnap.exists || accountSnap.data()?.active === false) {
       return NextResponse.json({ success: false, error: 'SYSTEM_INACTIVE' }, { status: 423 })
     }
 
-    const ref = db.collection('orders').doc(String(idNum))
+  const ref = dbBase.collection('orders').doc(String(idNum))
     const snap = await ref.get()
     if (!snap.exists) return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
 
@@ -130,9 +147,22 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     if (data.status !== 'pending') return NextResponse.json({ success: false, error: 'CANNOT_ARCHIVE_STATUS' }, { status: 409 })
 
     console.log(`[DELETE] Deleting order ID=${idNum}, table=${data.table_id}, account=${accountId}`)
-    await mirrorOrderDelete(accountId, idNum, data.table_id)
-    try { await archiveOrder(accountId, idNum, 'cancelled') } catch (e) { console.error('[ARCHIVE][CANCEL] failed', e) }
-    sendOrderCancelledPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId }).catch(console.error)
+    // Idempotent cancellation push
+  await dbBase.runTransaction(async tx => {
+      const snapInside = await tx.get(ref)
+      if (!snapInside.exists) return
+  const docData = snapInside.data() as { pushed_statuses?: string[]; daily_number?: number; table_id?: number }
+  const pushed: string[] = Array.isArray(docData.pushed_statuses) ? docData.pushed_statuses : []
+      const newlyAdded = !pushed.includes('cancelled')
+      tx.update(ref, { pushed_statuses: newlyAdded ? [...pushed, 'cancelled'] : pushed })
+      ;(async()=>{
+        try {
+          await mirrorOrderDelete(accountId, idNum, data.table_id)
+          try { await archiveOrder(accountId, idNum, 'cancelled') } catch (e) { console.error('[ARCHIVE][CANCEL] failed', e) }
+          if (newlyAdded) await sendOrderCancelledPush({ id: idNum, table_id: data.table_id, daily_number: data.daily_number, account_id: accountId })
+        } catch(e){ console.error('[PUSH][ASYNC_CANCEL]', e) }
+      })()
+    })
 
     return NextResponse.json({ success: true, message: 'Order archived successfully' })
   } catch (err) {

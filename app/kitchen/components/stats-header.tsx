@@ -4,19 +4,16 @@ import { OrdersQuickActions } from '@/components/orders-quick-actions'
 import { useEffect } from 'react'
 
 interface Props {
-  language: 'ar' | 'fr'
   count: number
   soundEnabled: boolean
   onToggleSound: () => void
   onRefresh: () => void
-  onBulkReady: () => Promise<void>
   loading: boolean
   title: string
   subtitle: string
-  bulkLabel: string
 }
 
-export function KitchenStatsHeader({ language, count, soundEnabled, onToggleSound, onRefresh, onBulkReady, loading, title, subtitle, bulkLabel }: Props){
+export function KitchenStatsHeader({ count, soundEnabled, onToggleSound, onRefresh, loading, title, subtitle }: Props){
   useEffect(()=>{ try { localStorage.setItem('kitchen:lastCount', String(count)) } catch {} },[count])
   return (
     <Card className="shadow-sm border-slate-200">
@@ -32,8 +29,6 @@ export function KitchenStatsHeader({ language, count, soundEnabled, onToggleSoun
             onToggleSound={onToggleSound}
             onRefresh={onRefresh}
             pendingCount={count}
-            onBulkAction={onBulkReady}
-            bulkActionLabel={bulkLabel}
             loading={loading}
           />
         </div>

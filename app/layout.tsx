@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Space_Grotesk, DM_Sans } from "next/font/google"
 import { AuthProvider } from "@/lib/firebase/auth-context"
 import { Toaster } from "@/components/ui/sonner"
 import { NotificationsHost } from "@/components/notifications-host"
@@ -8,17 +7,6 @@ import { ServiceWorkerRegister } from "@/components/sw-register"
 import { PushBootstrap } from "@/components/push-bootstrap"
 import "./globals.css"
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-space-grotesk",
-})
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-dm-sans",
-})
 
 export const metadata: Metadata = {
   title: {
@@ -49,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${dmSans.variable} antialiased`}>
+  <html lang="en" className="antialiased">
       <head>
         <meta name="application-name" content="Restaurant Admin" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

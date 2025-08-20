@@ -7,12 +7,13 @@ export async function GET(
   context: { params: Promise<{ restaurantId: string; tableId: string }> }
 ) {
   try {
-    // ✅ لازم نعمل await
+    // ✅ ننتظر الـ params
     const { restaurantId, tableId } = await context.params
 
     const restaurantIdNum = Number(restaurantId)
     const tableIdNum = Number(tableId)
 
+    // التحقق من أرقام المطعم والطاولة
     if (!Number.isInteger(restaurantIdNum) || !Number.isInteger(tableIdNum)) {
       return NextResponse.json({ success: false, error: 'NOT_FOUND' }, { status: 404 })
     }
@@ -43,16 +44,22 @@ export async function GET(
       .limit(1)
       .get()
 
-    let settingsData: { logo_url?: string; language?: 'ar' | 'fr'; currency?: string } = {}
+    let settingsData: { logo_url?: string; language?: 'ar' | 'fr'; currency?: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD' } = {}
+
     if (!settingsSnap.empty) {
-      settingsData = settingsSnap.docs[0].data()
+      const docData = settingsSnap.docs[0].data()
+      settingsData = {
+        logo_url: docData.logo_url || '',
+        language: docData.language === 'fr' ? 'fr' : 'ar', // default ar
+        currency: ['USD', 'EUR', 'MAD', 'TND', 'DZD'].includes(docData.currency) ? docData.currency : 'DZD',
+      }
     }
 
     const data = {
       restaurant_name: accountData.name || '',
       logo_url: settingsData.logo_url || '',
-      currency: (settingsData.currency || 'DZD') as 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD',
-      language: (settingsData.language || 'ar') as 'ar' | 'fr',
+      currency: settingsData.currency || 'DZD',
+      language: settingsData.language || 'ar',
       address: accountData.address || '',
       phone: accountData.phone || '',
     }

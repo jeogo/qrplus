@@ -37,8 +37,19 @@ export async function POST(req: NextRequest) {
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
 
-      // Import Cloudinary dynamically
-      const { v2: cloudinary } = await import('cloudinary') as any
+      // Import Cloudinary dynamically with minimal typing (avoid any)
+      const { v2 } = await import('cloudinary')
+      // narrow type for just what we use
+      interface CloudinaryLike {
+        config(opts: Record<string, string | undefined>): void
+        uploader: {
+          upload_stream(
+            options: Record<string, unknown>,
+            callback: (error: unknown, result?: { secure_url: string }) => void
+          ): { end(buffer: Buffer): void }
+        }
+      }
+      const cloudinary: CloudinaryLike = v2 as unknown as CloudinaryLike
       cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
             ],
             overwrite: true
           },
-          (error: unknown, result?: { secure_url: string }) => {
+          (error, result) => {
             if (error) reject(error)
             else if (result) resolve(result)
             else reject(new Error('Upload failed'))

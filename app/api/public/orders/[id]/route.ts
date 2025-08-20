@@ -5,38 +5,52 @@ import admin from '@/lib/firebase/admin'
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const orderId = Number(params.id)
+
+    // التحقق من صحة رقم الطلب
     if (!Number.isInteger(orderId) || orderId <= 0) {
       return NextResponse.json({ success: false, error: 'INVALID_ORDER_ID' }, { status: 400 })
     }
 
     const db = admin.firestore()
     
-    // Get order
+    // جلب بيانات الطلب
     const orderRef = db.collection('orders').doc(String(orderId))
     const orderSnap = await orderRef.get()
     
     if (!orderSnap.exists) {
       return NextResponse.json({ success: false, error: 'ORDER_NOT_FOUND' }, { status: 404 })
     }
-
     const orderData = orderSnap.data()!
-    
-    // Get order items
+
+    // جلب عناصر الطلب
     const itemsSnap = await db.collection('order_items')
       .where('order_id', '==', orderId)
       .get()
     
-    const items = itemsSnap.docs.map(doc => doc.data())
+    const items = itemsSnap.docs.map(doc => {
+      const data = doc.data()
+      return {
+        id: data.id,
+        product_id: data.product_id,
+        product_name: data.product_name || '',
+        quantity: Number(data.quantity),
+        price: Number(data.price),
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      }
+    })
 
     return NextResponse.json({
       success: true,
       data: {
         order: orderData,
-        items: items
+        items
       }
     })
   } catch (error) {
-    console.error('[API][PUBLIC_ORDER_GET]', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[API][PUBLIC_ORDER_GET]', error)
+    }
     return NextResponse.json(
       { success: false, error: 'Server error' }, 
       { status: 500 }

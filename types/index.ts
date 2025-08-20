@@ -78,7 +78,6 @@ export type Product = {
   created_at: string;
   updated_at: string;
 };
-
 // ======================
 // 7. Orders
 // ======================

@@ -41,6 +41,14 @@ export const adminSettingsTexts = {
     fileSelected: "ملف محدد:",
     uploading: "جاري الرفع...",
     updateLogo: "تحديث الشعار"
+  , resetDailyNumber: "إعادة ترقيم الطلبات اليومية"
+  , resetDailyNumberDesc: "يعيد العداد إلى 0 لليوم الحالي (أول طلب جديد يصبح رقم 1)"
+  , confirmResetDailyTitle: "تأكيد إعادة الترقيم"
+  , confirmResetDailyDesc: "سيتم إعادة تعيين عداد أرقام الطلبات اليومية لهذا اليوم. أول طلب جديد سيحصل على الرقم 1. لن يتغير أي طلب سابق. هل تريد المتابعة؟"
+  , confirm: "تأكيد"
+  , cancel: "إلغاء"
+  , resetSuccess: "تمت إعادة الترقيم"
+  , resetFailed: "فشل في إعادة الترقيم"
   },
   fr: {
     title: "Paramètres Système",
@@ -83,6 +91,14 @@ export const adminSettingsTexts = {
     fileSelected: "Fichier sélectionné:",
     uploading: "Téléchargement...",
     updateLogo: "Mettre à jour le logo"
+  , resetDailyNumber: "Réinitialiser la numérotation du jour"
+  , resetDailyNumberDesc: "Remet le compteur du jour à 0 (la prochaine commande sera 1)"
+  , confirmResetDailyTitle: "Confirmer la réinitialisation"
+  , confirmResetDailyDesc: "Le compteur des numéros de commande pour aujourd'hui sera remis à zéro. La prochaine commande aura le numéro 1. Les commandes existantes restent inchangées. Continuer ?"
+  , confirm: "Confirmer"
+  , cancel: "Annuler"
+  , resetSuccess: "Compteur réinitialisé"
+  , resetFailed: "Échec de la réinitialisation"
   }
 }
 

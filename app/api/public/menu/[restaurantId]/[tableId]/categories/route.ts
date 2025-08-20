@@ -34,7 +34,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'MISMATCH' }, { status: 404 })
     }
 
-    // جلب التصنيفات الفعالة
+    // جلب كل التصنيفات الفعّالة (حتى لو لا توجد منتجات متاحة حاليا) لعرضها ثم إظهار المنتجات بحالتها (متوفر / غير متوفر)
     const catSnap = await db
       .collection('categories')
       .where('account_id', '==', restaurantIdNum)
@@ -43,21 +43,7 @@ export async function GET(
       .get()
 
     const categories = catSnap.docs.map((d) => d.data())
-    if (!categories.length) {
-      return NextResponse.json({ success: true, data: [] })
-    }
-
-    // جلب المنتجات المتاحة وربطها بالتصنيفات
-    const prodSnap = await db
-      .collection('products')
-      .where('account_id', '==', restaurantIdNum)
-      .where('available', '==', true)
-      .get()
-
-    const availCat = new Set(prodSnap.docs.map((d) => d.data().category_id))
-    const filtered = categories.filter((c) => availCat.has(c.id))
-
-    return NextResponse.json({ success: true, data: filtered })
+    return NextResponse.json({ success: true, data: categories })
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[PUBLIC][MENU][CATEGORIES+RID]', err)

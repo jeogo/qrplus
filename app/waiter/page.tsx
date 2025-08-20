@@ -58,10 +58,10 @@ export default function WaiterPage(){
           onChangeView={setViewMode}
         />
         <OrdersList
-          orders={activeOrders as any}
+          orders={activeOrders}
           language={language as 'ar'|'fr'}
           viewMode={viewMode}
-          t={t as any}
+          t={t}
           formatTimeAgo={formatTimeAgo}
           onServe={async (id:number)=> { const ok = await serve(id); if (ok) { toast.success(t.servedSuccess) } else { toast.error(t.serveFailed) } }}
           onCancel={async (id:number)=> { const ok = await cancel(id); if (ok) { toast.success(t.cancelledSuccess) } else { toast.error(t.cancelFailed) } }}

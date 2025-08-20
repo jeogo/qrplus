@@ -12,7 +12,7 @@ export default function KitchenPage(){
   const { user, loading: sessionLoading } = useSession()
   const [soundEnabled,setSoundEnabled] = useState<boolean>(()=> { if (typeof window==='undefined') return true; try { return localStorage.getItem('kitchen:sound') !== 'off' } catch { return true } })
   const t = useMemo(()=> getKitchenTexts(language), [language])
-  const { orders, loading, stats, markReady, cancel, bulkReady } = useKitchenOrders({ language, t, soundEnabled })
+  const { orders, loading, markReady, cancel } = useKitchenOrders({ t, soundEnabled })
   useEffect(()=>{ try { localStorage.setItem('kitchen:sound', soundEnabled? 'on':'off') } catch {} },[soundEnabled])
 
   useEffect(()=>{ if (!sessionLoading && user && user.role !== 'kitchen') { if (user.role==='admin') window.location.href='/admin/dashboard'; else if (user.role==='waiter') window.location.href='/waiter'; else window.location.href='/auth' } },[user, sessionLoading])
@@ -41,23 +41,20 @@ export default function KitchenPage(){
     <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 ${language==='ar'? 'rtl':'ltr'}`}>
       <AdminHeader title={t.title} />
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <KitchenStatsHeader
-          language={language as 'ar'|'fr'}
+  <KitchenStatsHeader
           count={activeOrders.length}
           soundEnabled={soundEnabled}
           onToggleSound={()=> setSoundEnabled(s=> !s)}
           onRefresh={()=> { /* simple refetch */ window.location.reload() }}
-          onBulkReady={async ()=> { await bulkReady(); }}
           loading={loading}
           title={t.approvedOrders}
           subtitle={`${activeOrders.length} ${t.ordersToPrep}`}
-          bulkLabel={t.markReady}
         />
         {loading ? <KitchenLoadingSkeleton /> : (
           <KitchenOrdersList
             orders={activeOrders}
             language={language as 'ar'|'fr'}
-            t={t as any}
+            t={t}
             formatTimeAgo={formatTimeAgo}
             onMarkReady={async (id:number)=> { const ok = await markReady(id); if (ok) { toast.success(t.markedReadySuccess) } else { toast.error(t.markedReadyFail) } }}
             onCancel={async (id:number)=> { const ok = await cancel(id); if (ok) { toast.success(t.cancelledSuccess) } else { toast.error(t.cancelledFail) } }}
