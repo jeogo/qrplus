@@ -14,12 +14,12 @@ export interface UsersToolbarProps {
 
 export function UsersToolbar({ onAdd, onRefresh, onSearch, texts, debounce = 400 }: UsersToolbarProps){
   const [value, setValue] = useState('')
-  const debounced = useRef<any>(null)
+  const debounced = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(()=>{
-    clearTimeout(debounced.current)
+    if (debounced.current) clearTimeout(debounced.current)
     debounced.current = setTimeout(()=> onSearch(value.trim()), debounce)
-    return () => clearTimeout(debounced.current)
-  }, [value])
+    return () => { if (debounced.current) clearTimeout(debounced.current) }
+  }, [value, debounce, onSearch])
   return (
     <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between mb-5">
       <div className="relative flex-1 max-w-sm">

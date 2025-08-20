@@ -3,15 +3,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Image from 'next/image'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 // removed Select for auto category assignment
 import { Switch } from "@/components/ui/switch"
-import { Search, Plus, Edit, Trash2, Loader2, RefreshCw, Image as ImageIcon } from "lucide-react"
+import { Search, Plus, Loader2, RefreshCw, Image as ImageIcon } from "lucide-react"
 import { toast } from 'sonner'
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
@@ -39,7 +37,7 @@ export default function MenuAdminPage() {
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // removed unused 'error' state (lint cleanup)
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null)
 
@@ -48,7 +46,8 @@ export default function MenuAdminPage() {
   // Restaurant settings (currency, name, language)
   interface MinimalSettings { currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'; restaurant_name: string; language: 'ar' | 'fr' }
   const [settings, setSettings] = useState<MinimalSettings | null>(null)
-  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsLoading, setSettingsLoading] = useState(true) // used for potential future UI; keep but reference to avoid unused warning
+  void settingsLoading
 
   useEffect(() => {
     let cancelled = false
@@ -81,7 +80,7 @@ export default function MenuAdminPage() {
   const formatPrice = useCallback((value:number)=> new Intl.NumberFormat(language==='ar'?'ar-DZ':'fr-DZ',{style:'currency',currency,minimumFractionDigits:2}).format(value),[language,currency])
 
   const refreshCategories = useCallback(async (q?: string) => {
-    setError(null)
+  // reset category load error (removed state)
     setLoading(true)
     try {
       const qp = new URLSearchParams()
@@ -89,9 +88,8 @@ export default function MenuAdminPage() {
       if (q) qp.set('q', q)
       const data = await api<{ success: boolean; data: Category[] }>(`/api/categories?${qp.toString()}`)
       setCategories(data as unknown as Category[])
-    } catch (e) {
+  } catch (e) {
       console.error('categories load failed', e)
-      setError('categories')
       toast.error(language==='ar'? 'فشل تحميل الفئات':'Échec du chargement des catégories')
     } finally { setLoading(false) }
   }, [language])
@@ -110,7 +108,7 @@ export default function MenuAdminPage() {
 
   // refreshCategories defined above with useCallback
 
-  async function refreshProducts(categoryId?: number, q?: string) {
+  const refreshProducts = useCallback(async (categoryId?: number, q?: string) => {
     if (!categoryId) return
     setLoadingProducts(true)
     try {
@@ -124,7 +122,7 @@ export default function MenuAdminPage() {
       console.error('products load failed', e)
       toast.error(language==='ar'? 'فشل تحميل المنتجات':'Échec du chargement des produits')
     } finally { setLoadingProducts(false) }
-  }
+  }, [language])
 
   function useDebounce<T>(value: T, delay = 320) {
     const [d, setD] = useState(value)
@@ -135,7 +133,7 @@ export default function MenuAdminPage() {
 
   // remote search effects (after debouncedSearch defined)
   useEffect(()=> { if (!mounted) return; void refreshCategories(debouncedSearch || undefined) }, [debouncedSearch, mounted, refreshCategories])
-  useEffect(()=> { if (!mounted || !selectedCategory) return; void refreshProducts(selectedCategory, debouncedSearch || undefined) }, [debouncedSearch, selectedCategory, mounted])
+  useEffect(()=> { if (!mounted || !selectedCategory) return; void refreshProducts(selectedCategory, debouncedSearch || undefined) }, [debouncedSearch, selectedCategory, mounted, refreshProducts])
 
   const performSave = async (formData: FormData) => {
     setSaving(true)
@@ -372,7 +370,7 @@ export default function MenuAdminPage() {
                 </div>
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredCategories.map((category,index)=>(
+                  {filteredCategories.map((category)=>(
                     <CategoryCard
                       key={category.id}
                       category={category}
@@ -406,7 +404,7 @@ export default function MenuAdminPage() {
                 </div>
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {filteredProducts.map((product,index)=>(
+                  {filteredProducts.map((product)=>(
                     <ProductCard
                       key={product.id}
                       product={product}

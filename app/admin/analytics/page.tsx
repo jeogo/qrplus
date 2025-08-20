@@ -33,7 +33,7 @@ export default function AdminAnalyticsPage() {
   const [customFromDate, setCustomFromDate] = useState('')
   const [customToDate, setCustomToDate] = useState('')
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   // Get date range based on selected period
   const getDateRange = useCallback((period: TimePeriod) => {
@@ -77,7 +77,7 @@ export default function AdminAnalyticsPage() {
   // Fetch orders data
   const fetchOrders = useCallback(async () => {
     setLoading(true)
-    setError(null)
+  setFetchError(null)
     try {
       const { from, to } = getDateRange(selectedPeriod)
       const controller = new AbortController()
@@ -98,7 +98,7 @@ export default function AdminAnalyticsPage() {
     } catch (e) {
       console.error('[analytics] fetch failed', e)
       setOrders([])
-      setError('failed')
+  setFetchError('failed')
       toast.error(t.toasts.refreshError)
     } finally { setLoading(false) }
   }, [selectedPeriod, getDateRange, t])
@@ -167,6 +167,11 @@ export default function AdminAnalyticsPage() {
         />
         
         <main className="container mx-auto px-4 py-6 space-y-6">
+          {fetchError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md text-sm">
+              {t.toasts.refreshError}
+            </div>
+          )}
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

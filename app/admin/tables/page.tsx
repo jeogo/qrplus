@@ -162,18 +162,7 @@ export default function TablesAdminPage() {
     } finally { setEditing(false) }
   }
 
-  const handleSave = () => {
-    if (!tableNumberInput.trim()) return
-    const num = Number(tableNumberInput)
-    if (!Number.isInteger(num) || num < 1) {
-      setErrorMessage(L.invalidNumber)
-      return
-    }
-    if (adding || editing) return
-    // set pending action then open confirmation
-    setPendingAction(editingTable ? 'edit' : 'add')
-    setConfirmSaveOpen(true)
-  }
+  // removed unused handleSave helper (lint cleanup); confirmation handled inline in dialog callbacks
 
   const handleDeleteTable = async (tableId: number) => {
     if (deletingId) return

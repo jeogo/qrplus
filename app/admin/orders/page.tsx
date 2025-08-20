@@ -26,7 +26,11 @@ export default function AdminOrdersPage() {
   const [orders,setOrders] = useState<Order[]>([])
   const [loading,setLoading] = useState(false)
   const [statusFilter,setStatusFilter] = useState<string>("")
-  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'compact'>(()=> (typeof window !== 'undefined' && (localStorage.getItem('orders:viewMode') as any)) || 'cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'compact'>(()=> {
+    if (typeof window === 'undefined') return 'cards'
+    const stored = localStorage.getItem('orders:viewMode')
+    return stored === 'cards' || stored === 'list' || stored === 'compact' ? stored : 'cards'
+  })
   const [actionLoading,setActionLoading] = useState(false)
   const [error,setError] = useState<string|null>(null)
   const action = useAdminActionOverlay(language)

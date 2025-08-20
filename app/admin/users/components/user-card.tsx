@@ -6,10 +6,25 @@ import { PermissionsList } from './permissions-list'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+interface CardUserPermissions { approve_orders:boolean; serve_orders:boolean; make_ready:boolean }
+export interface CardUser {
+  id: number
+  username?: string
+  name?: string
+  displayName?: string
+  email?: string
+  phone?: string
+  role: 'waiter' | 'kitchen'
+  permissions?: CardUserPermissions & { approve_orders:boolean; serve_orders:boolean; make_ready:boolean }
+  _derivedPermissions?: { key:string; label:string; active:boolean }[]
+  active?: boolean
+  __flash?: boolean
+}
+
 export interface UserCardProps {
-  user: any
-  onEdit: (user: any) => void
-  onDelete: (user: any) => void
+  user: CardUser
+  onEdit: (user: CardUser) => void
+  onDelete: (user: CardUser) => void
   isEditing?: boolean
   texts: {
     waiter: string

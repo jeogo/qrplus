@@ -21,7 +21,9 @@ export interface UserDialogProps {
     permissions: { approve_orders:boolean; serve_orders:boolean; make_ready:boolean }
   }
   setFormData: (d:UserDialogProps['formData'])=>void
-  t: any
+  t: {
+    editUser:string; addUser:string; password:string; passwordLeaveBlank:string; username:string; role:string; permissions:string; approveOrders:string; serveOrders:string; makeReady:string; cancel:string; save:string; roles:{ waiter:string; kitchen:string }
+  }
   onRoleChange: (r:'waiter'|'kitchen')=>void
   onPermissionChange: (key: keyof UserDialogProps['formData']['permissions'], v:boolean)=>void
   onRequestSave: ()=>void

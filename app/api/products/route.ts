@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
     if (categoryId) q = q.where('category_id', '==', Number(categoryId))
     // Using orderBy name for deterministic pagination (future); Firestore requires index if combining multiple where/order fields
     const snap = await q.orderBy('name').limit(limit).get()
-    let data = snap.docs.map(d => d.data())
+    interface ProductDoc { id?:number; name?:string; [k:string]:unknown }
+    let data: ProductDoc[] = snap.docs.map(d => d.data() as ProductDoc)
     if (qParam) {
-      data = data.filter((d: any)=> typeof d.name === 'string' && d.name.toLowerCase().includes(qParam))
+      data = data.filter(d=> typeof d.name === 'string' && d.name.toLowerCase().includes(qParam))
     }
     return NextResponse.json({ success: true, data })
   } catch (err) {

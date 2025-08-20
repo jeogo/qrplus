@@ -2,14 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,13 +13,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Plus, Users, Shield, Loader2, RefreshCw, Search } from "lucide-react"
+import { Shield, Loader2 } from "lucide-react"
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminUsersTexts } from "@/lib/i18n/admin-users"
-import { UserCard } from './components/user-card'
+import { UserCard, type CardUser } from './components/user-card'
 import { UsersToolbar } from './components/users-toolbar'
 import { UsersSkeletonGrid } from './components/users-skeleton-grid'
 import { UserDialog } from './components/user-dialog'
@@ -51,7 +44,7 @@ export default function UsersAdminPage() {
   const language = useAdminLanguage()
   const [users, setUsers] = useState<User[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingUser, setEditingUser] = useState<CardUser | null>(null)
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -69,7 +62,7 @@ export default function UsersAdminPage() {
   const [search, setSearch] = useState("")
   const [adminEmail, setAdminEmail] = useState<string>("")
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
-  const [pendingSave, setPendingSave] = useState(false)
+  // removed unused pendingSave state (lint cleanup)
 
   const t = useMemo(()=> getAdminUsersTexts(language),[language])
 
@@ -109,7 +102,7 @@ export default function UsersAdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [api, adminEmail])
+  }, [api, adminEmail, t.approveOrders, t.serveOrders, t.makeReady, t.loadError])
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -136,13 +129,17 @@ export default function UsersAdminPage() {
     setIsDialogOpen(true)
   }
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: CardUser) => {
     setEditingUser(user)
     setFormData({
-      username: user.username,
+      username: user.username ?? "",
       password: "",
       role: user.role,
-      permissions: { ...user.permissions },
+      permissions: {
+        approve_orders: user.permissions?.approve_orders ?? false,
+        serve_orders: user.permissions?.serve_orders ?? false,
+        make_ready: user.permissions?.make_ready ?? false,
+      },
     })
     setIsDialogOpen(true)
   }
@@ -191,7 +188,7 @@ export default function UsersAdminPage() {
           { key:'serve_orders', label: t.serveOrders, active: formData.permissions.serve_orders },
           { key:'make_ready', label: t.makeReady, active: formData.permissions.make_ready },
         ], __flash:true }
-        setUsers([...users, optimistic as any])
+  setUsers([...users, optimistic])
         const res = await fetch(`/api/admin/users`, { method: 'POST', body: JSON.stringify({ username: formData.username, password: formData.password, role: formData.role, permissions: formData.permissions }) })
         if (!res.ok) throw new Error('create failed')
         const json = await res.json()
@@ -208,7 +205,7 @@ export default function UsersAdminPage() {
       toast.error(t.saveError)
       // rollback by reloading
       void loadUsers()
-    } finally { setSaving(false); setConfirmSaveOpen(false); setPendingSave(false) }
+  } finally { setSaving(false); setConfirmSaveOpen(false) }
   }
 
   const requestSave = () => {

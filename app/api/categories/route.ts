@@ -14,14 +14,15 @@ export async function GET(req: NextRequest) {
       const limitParam = Number(searchParams.get('limit') || '50')
       const qRaw = (searchParams.get('q') || '').trim().toLowerCase()
       const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50
-      let qry: FirebaseFirestore.Query = admin.firestore().collection('categories')
+  const qry: FirebaseFirestore.Query = admin.firestore().collection('categories')
         .where('account_id', '==', accountIdNum)
         .orderBy('name')
       // Firestore simple contains search would need indexing; do client side filter after fetch until we implement a proper search index
       const snap = await qry.limit(limit).get()
-      let docs = snap.docs.map(d => d.data())
+      interface CategoryDoc { id?:number; name?:string; [k:string]:unknown }
+      let docs: CategoryDoc[] = snap.docs.map(d => d.data() as CategoryDoc)
       if (qRaw) {
-        docs = docs.filter((d: any)=> typeof d.name === 'string' && d.name.toLowerCase().includes(qRaw))
+        docs = docs.filter(d=> typeof d.name === 'string' && d.name.toLowerCase().includes(qRaw))
       }
       return NextResponse.json({ success: true, data: docs })
   } catch (err) {
