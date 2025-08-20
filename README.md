@@ -11,10 +11,10 @@ A modern multi-role restaurant ordering platform built with Next.js 14 (App Rout
 - Privacy-aware client push: customer devices receive anonymized titles (no order numbers) and deep-link to their table page
 - Authentication (session endpoint cached client-side) & role-based UI routing
 - Public menu view via nested path `/menu/[restaurantId]/[tableId]` (premium modern UI, responsive, RTL-aware, optimized images)
-- Upload signing endpoint (dynamic) for media (Cloudinary integration placeholder)
+- Upload signing endpoint (dynamic) for media (Cloudinary integration)
 - Theming (dark/light) via CSS variables + `next-themes`
 - Complete bilingual support (Arabic RTL & French)
-- Component library: Buttons, Forms (React Hook Form + Zod), Dialogs, Menus, Toasts, Charts, Cards, Tables, Tabs, Accordions, etc.
+- Component library: Buttons, Dialogs, Menus, Toasts, Cards, Tables, Tabs, Toggles, Inputs (lean: removed unused form & chart libs)
 
 ## 🧱 Tech Stack
 | Layer | Technology |
@@ -23,13 +23,13 @@ A modern multi-role restaurant ordering platform built with Next.js 14 (App Rout
 | Language | TypeScript |
 | Styling | Tailwind CSS + custom CSS vars (design tokens) |
 | UI Primitives | Radix UI + shadcn-inspired wrappers |
-| Forms & Validation | react-hook-form + zod |
+| Forms & Validation | Basic native handling (planned schema lib) |
 | Real-time | SSE (custom endpoint) over Firestore change events |
 | Database | Firestore (firebase + firebase-admin) |
 | Auth | Custom (JWT / session cookie)* |
 | Images / Uploads | Cloudinary (signed upload API) |
-| Charts | Recharts |
-| Misc | date-fns, lucide-react icons |
+| Charts | (Planned) |
+| Misc | lucide-react icons |
 
 *Implementation details may evolve; session optimization reduces redundant `/api/auth/me` requests.
 

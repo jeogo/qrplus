@@ -3,19 +3,27 @@ import admin from '@/lib/firebase/admin'
 import { requireSession } from '@/lib/auth/session'
 import { nextSequence } from '@/lib/firebase/sequences'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const sess = await requireSession()
-  const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-  if (!Number.isFinite(accountIdNum)) {
-      return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
-    }
-    const snap = await admin.firestore().collection('categories')
-      .where('account_id', '==', accountIdNum)
-      .orderBy('name')
-      .get()
-    const data = snap.docs.map(d => d.data())
-    return NextResponse.json({ success: true, data })
+      const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+      if (!Number.isFinite(accountIdNum)) {
+        return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
+      }
+      const { searchParams } = new URL(req.url)
+      const limitParam = Number(searchParams.get('limit') || '50')
+      const qRaw = (searchParams.get('q') || '').trim().toLowerCase()
+      const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 50
+      let qry: FirebaseFirestore.Query = admin.firestore().collection('categories')
+        .where('account_id', '==', accountIdNum)
+        .orderBy('name')
+      // Firestore simple contains search would need indexing; do client side filter after fetch until we implement a proper search index
+      const snap = await qry.limit(limit).get()
+      let docs = snap.docs.map(d => d.data())
+      if (qRaw) {
+        docs = docs.filter((d: any)=> typeof d.name === 'string' && d.name.toLowerCase().includes(qRaw))
+      }
+      return NextResponse.json({ success: true, data: docs })
   } catch (err) {
     return handleError(err)
   }

@@ -35,6 +35,15 @@ export const adminMenuTexts = {
     productOf: "منتجات -",
   currencyNote: "الأسعار بالعملة",
   refresh: "تحديث",
+  deleteConfirmTitle: "تأكيد الحذف",
+  deleteConfirmDescription: "سيتم حذف هذا العنصر نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+  confirm: "تأكيد",
+  confirmSaveTitle: "تأكيد الحفظ",
+  confirmSaveDescription: "هل أنت متأكد من حفظ هذه التغييرات؟",
+  addCategoryTitle: "إضافة فئة جديدة",
+  addProductTitle: "إضافة منتج جديد",
+  editCategoryTitle: "تعديل الفئة",
+  editProductTitle: "تعديل المنتج",
   },
   fr: {
     title: "Gestion du Menu Restaurant",
@@ -72,6 +81,15 @@ export const adminMenuTexts = {
     productOf: "Produits -",
   currencyNote: "Prix en",
   refresh: "Rafraîchir",
+  deleteConfirmTitle: "Confirmer la suppression",
+  deleteConfirmDescription: "Cet élément sera supprimé définitivement. Cette action est irréversible.",
+  confirm: "Confirmer",
+  confirmSaveTitle: "Confirmer l'enregistrement",
+  confirmSaveDescription: "Voulez-vous vraiment enregistrer ces modifications ?",
+  addCategoryTitle: "Ajouter une nouvelle catégorie",
+  addProductTitle: "Ajouter un nouveau produit",
+  editCategoryTitle: "Modifier la catégorie",
+  editProductTitle: "Modifier le produit",
   }
 }
 

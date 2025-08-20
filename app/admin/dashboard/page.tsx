@@ -9,6 +9,8 @@ import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { useSession } from "@/hooks/use-session"
 import { getAdminDashboardTexts } from "@/lib/i18n/admin-dashboard"
+import { StatCard } from "./components/stat-card"
+import { toast } from "sonner"
 
 interface DashboardStats { totalTables: number; totalProducts: number; totalUsers: number; totalOrders: number; pendingOrders: number }
 
@@ -63,11 +65,13 @@ export default function AdminDashboard() {
       }
       setStats(counts)
       setUpdatedAt(new Date().toLocaleTimeString())
+      toast.success(language==='ar'? 'تم تحديث الإحصائيات':'Stats updated')
     } catch (e) {
       console.error('dashboard stats load failed', e)
       setError('load_failed')
+      toast.error(language==='ar'? 'فشل تحميل الإحصائيات':'Failed to load stats')
     } finally { setLoading(false) }
-  }, [user])
+  }, [user, language])
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { if (!sessionLoading && user) void fetchStats() }, [sessionLoading, user, fetchStats])
@@ -84,28 +88,11 @@ export default function AdminDashboard() {
 
   if (!mounted || sessionLoading) return null
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <AdminHeader title={t.title} />
-        <main className="container mx-auto px-4 py-6">
-          <div className="grid gap-6">
-            <div className="animate-pulse grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {Array.from({length:5}).map((_,i)=> (
-                <div key={i} className="h-32 rounded-xl bg-muted/40" />
-              ))}
-            </div>
-            <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({length:3}).map((_,i)=> (
-                <div key={i} className="h-48 rounded-xl bg-muted/40" />
-              ))}
-            </div>
-            <p className="text-center text-muted-foreground text-sm mt-6">{t.loading}</p>
-          </div>
-        </main>
-      </AdminLayout>
-    )
-  }
+  const statsSkeleton = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 animate-pulse">
+      {Array.from({length:5}).map((_,i)=> <div key={i} className="h-32 rounded-xl bg-muted/40" />)}
+    </div>
+  )
 
   if (error) {
     return (
@@ -125,51 +112,11 @@ export default function AdminDashboard() {
   }
 
   const statisticsCards = [
-    {
-      title: t.totalTables,
-      value: stats.totalTables,
-      unit: t.tablesCount,
-      icon: Table,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      href: "/admin/tables",
-    },
-    {
-      title: t.totalProducts,
-      value: stats.totalProducts,
-      unit: t.productsCount,
-      icon: Package,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      href: "/admin/menu",
-    },
-    {
-      title: t.totalUsers,
-      value: stats.totalUsers,
-      unit: t.usersCount,
-      icon: UserCheck,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-      href: "/admin/users",
-    },
-    {
-      title: t.totalOrders,
-      value: stats.totalOrders,
-      unit: t.ordersCount,
-      icon: ClipboardList,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      href: "/admin/orders",
-    },
-    {
-      title: t.pendingOrders,
-      value: stats.pendingOrders,
-      unit: t.ordersCount,
-      icon: ClipboardList,
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      href: "/admin/orders?status=pending",
-    },
+    { title: t.totalTables, value: stats.totalTables, unit: t.tablesCount, icon: Table, href: "/admin/tables", accent: "text-blue-600", accentBg: "bg-blue-50 dark:bg-blue-500/15" },
+    { title: t.totalProducts, value: stats.totalProducts, unit: t.productsCount, icon: Package, href: "/admin/menu", accent: "text-green-600", accentBg: "bg-green-50 dark:bg-green-500/15" },
+    { title: t.totalUsers, value: stats.totalUsers, unit: t.usersCount, icon: UserCheck, href: "/admin/users", accent: "text-purple-600", accentBg: "bg-purple-50 dark:bg-purple-500/15" },
+    { title: t.totalOrders, value: stats.totalOrders, unit: t.ordersCount, icon: ClipboardList, href: "/admin/orders", accent: "text-orange-600", accentBg: "bg-orange-50 dark:bg-orange-500/15" },
+    { title: t.pendingOrders, value: stats.pendingOrders, unit: t.ordersCount, icon: ClipboardList, href: "/admin/orders?status=pending", accent: "text-red-600", accentBg: "bg-red-50 dark:bg-red-500/15" },
   ]
 
   return (
@@ -213,60 +160,37 @@ export default function AdminDashboard() {
 
         {/* Statistics Cards */}
         <section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {statisticsCards.map((stat, index) => {
-              const Icon = stat.icon
-              return (
-                <Link key={index} href={stat.href}>
-                  <Card className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-[1.02] bg-gradient-to-br from-white to-gray-50/50">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground/70 transition-colors">{stat.title}</p>
-                          <div className="flex items-baseline gap-2">
-                            <p className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors">{stat.value}</p>
-                            <p className="text-sm text-muted-foreground">{stat.unit}</p>
-                          </div>
-                        </div>
-                        <div className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
-                          <Icon className={`h-6 w-6 ${stat.color}`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              )
-            })}
-          </div>
+          {loading ? (
+            statsSkeleton
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {statisticsCards.map((s,i)=> (
+                <StatCard key={i} title={s.title} value={s.value} unit={s.unit} href={s.href} icon={s.icon} accent={s.accent} accentBg={s.accentBg} />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Quick Actions */}
         <section>
-          <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-3">
-            <div className="w-1 h-8 bg-primary rounded-full"></div>
-            {t.quickActions}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <h2 className="text-2xl font-semibold mb-5 flex items-center gap-3"><span className="w-1.5 h-7 bg-primary rounded" /> {t.quickActions}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {navigationCards.map((card, index) => {
               const Icon = card.icon
               return (
-                <Card key={index} className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-white to-gray-50/30">
-                  <CardHeader className="pb-4">
+                <Card key={index} className="group border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-background to-muted/20">
+                  <CardHeader className="pb-3">
                     <div className="flex items-start gap-4">
-                      <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
-                        <Icon className="h-7 w-7 text-primary" />
-                      </div>
+                      <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 group-hover:scale-110 transition-all"><Icon className="h-6 w-6 text-primary" /></div>
                       <div className="flex-1">
-                        <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">{card.title}</CardTitle>
-                        <p className="text-sm text-muted-foreground mt-2 group-hover:text-foreground/60 transition-colors">{card.description}</p>
+                        <CardTitle className="text-base font-semibold leading-tight group-hover:text-primary transition-colors">{card.title}</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-2 group-hover:text-foreground/60 transition-colors">{card.description}</p>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <Link href={card.href}>
-                      <Button className="w-full group-hover:bg-primary/90 transition-colors" size="sm">
-                        {t.goTo}
-                      </Button>
+                    <Link href={card.href} className="block">
+                      <Button className="w-full" size="sm">{t.goTo}</Button>
                     </Link>
                   </CardContent>
                 </Card>

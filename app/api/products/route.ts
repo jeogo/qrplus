@@ -8,6 +8,9 @@ export async function GET(req: NextRequest) {
     const sess = await requireSession()
     const url = new URL(req.url)
     const categoryId = url.searchParams.get('category_id')
+    const qParam = (url.searchParams.get('q') || '').trim().toLowerCase()
+    const limitParam = Number(url.searchParams.get('limit') || '60')
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 300) : 60
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
@@ -15,8 +18,12 @@ export async function GET(req: NextRequest) {
     const db = admin.firestore()
     let q: FirebaseFirestore.Query = db.collection('products').where('account_id', '==', accountIdNum)
     if (categoryId) q = q.where('category_id', '==', Number(categoryId))
-    const snap = await q.orderBy('name').get()
-    const data = snap.docs.map(d => d.data())
+    // Using orderBy name for deterministic pagination (future); Firestore requires index if combining multiple where/order fields
+    const snap = await q.orderBy('name').limit(limit).get()
+    let data = snap.docs.map(d => d.data())
+    if (qParam) {
+      data = data.filter((d: any)=> typeof d.name === 'string' && d.name.toLowerCase().includes(qParam))
+    }
     return NextResponse.json({ success: true, data })
   } catch (err) {
     return handleError(err)

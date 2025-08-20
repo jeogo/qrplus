@@ -5,15 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-# UNUSED REMOVED: export function formatPrice(price: number): string {
+export function formatPrice(price: number): string {
   return new Intl.NumberFormat('en-DZ', {
     style: 'currency',
     currency: 'DZD',
     minimumFractionDigits: 0
   }).format(price)
 }
-
-# UNUSED REMOVED: export function formatDate(date: string | Date): string {
+ export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
@@ -23,11 +22,11 @@ export function cn(...inputs: ClassValue[]) {
   }).format(new Date(date))
 }
 
-# UNUSED REMOVED: export function generateId(): string {
+export function generateId(): string {
   return Math.random().toString(36).substr(2, 9)
 }
 
-# UNUSED REMOVED: export function slugify(text: string): string {
+export function slugify(text: string): string {
   return text
     .toString()
     .toLowerCase()
@@ -38,7 +37,7 @@ export function cn(...inputs: ClassValue[]) {
     .replace(/-+$/, '')
 }
 
-# UNUSED REMOVED: export function formatTimeAgo(date: string | Date): string {
+export function formatTimeAgo(date: string | Date): string {
   const now = new Date()
   const then = new Date(date)
   const diffInSeconds = Math.floor((now.getTime() - then.getTime()) / 1000)
@@ -61,17 +60,17 @@ export function cn(...inputs: ClassValue[]) {
   return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
 }
 
-# UNUSED REMOVED: export function validateEmail(email: string): boolean {
+export function validateEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-# UNUSED REMOVED: export function validatePassword(password: string): boolean {
+export function validatePassword(password: string): boolean {
   // At least 6 characters
   return password.length >= 6
 }
 
-# UNUSED REMOVED: export function generateQRCodeUrl(tableId: string, accountId: string): string {
+export function generateQRCodeUrl(tableId: string, accountId: string): string {
   const baseUrl = process.env.NODE_ENV === 'production'
     ? 'https://your-domain.com'
     : 'http://localhost:3000'
@@ -79,7 +78,7 @@ export function cn(...inputs: ClassValue[]) {
   return `${baseUrl}/menu/${accountId}/${tableId}`
 }
 
-# UNUSED REMOVED: export function generateTableNumber(): number {
+export function generateTableNumber(): number {
   return Math.floor(Math.random() * 1000) + 1
 }
 
@@ -93,7 +92,7 @@ export const ORDER_STATUSES = {
 
 export type OrderStatus = typeof ORDER_STATUSES[keyof typeof ORDER_STATUSES]
 
-# UNUSED REMOVED: export function getStatusColor(status: OrderStatus): string {
+export function getStatusColor(status: OrderStatus): string {
   const colors = {
     pending: 'bg-yellow-500',
     approved: 'bg-blue-500',
@@ -104,7 +103,7 @@ export type OrderStatus = typeof ORDER_STATUSES[keyof typeof ORDER_STATUSES]
   return colors[status] || 'bg-gray-500'
 }
 
-# UNUSED REMOVED: export function uploadImageToCloudinary(file: File): Promise<string> {
+export function uploadImageToCloudinary(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     formData.append('file', file)

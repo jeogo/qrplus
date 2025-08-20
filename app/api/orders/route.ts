@@ -23,7 +23,30 @@ export async function GET(req: NextRequest) {
     }
     q = q.orderBy('created_at', 'desc')
     const snap = await q.get()
-    const data = snap.docs.map(d => d.data())
+    const data = snap.docs.map(d => {
+      const raw = d.data() as any
+      const tsCreated = raw.created_at
+      const tsUpdated = raw.updated_at
+      const norm = { ...raw }
+      const toIso = (v: any) => {
+        if (!v) return v
+        // Firestore Timestamp
+        if (typeof v?.toDate === 'function') return v.toDate().toISOString()
+        // Serialized timestamp object {seconds,nanoseconds}
+        if (typeof v === 'object' && typeof v.seconds === 'number') {
+          return new Date(v.seconds * 1000 + Math.floor((v.nanoseconds || 0)/1e6)).toISOString()
+        }
+        if (typeof v === 'string') return v
+        return v
+      }
+      norm.created_at = toIso(tsCreated)
+      norm.updated_at = toIso(tsUpdated)
+      if (typeof norm.total !== 'number') {
+        const maybe = Number(norm.total)
+        norm.total = Number.isFinite(maybe) ? maybe : 0
+      }
+      return norm
+    })
     return NextResponse.json({ success: true, data })
   } catch (err) {
     return handleError(err, 'GET')

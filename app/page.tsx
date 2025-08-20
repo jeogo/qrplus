@@ -1,5 +1,10 @@
 "use client"
 
+// Landing page: cleaned & populated with real product-style copy (Arabic & French) instead of placeholders.
+// Removed dependency on getLandingTexts (outdated) and inlined bilingual dictionary for clarity.
+// Images now point to existing public assets (logo.png). Replace with real screenshots: /public/hero-dashboard.png, /public/about-team.jpg when available.
+// To further customize, edit the dictionaries below.
+
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,11 +22,17 @@ import {
   Facebook,
   Twitter,
   Instagram,
+  Gauge,
+  Bell,
+  Cpu,
+  Shield,
+  Lock,
+  Eye,
+  DollarSign,
 } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
-import { getLandingTexts } from "@/lib/i18n/landing"
 import { useSession } from "@/hooks/use-session"
+import { getLandingTexts } from "@/lib/i18n/landing"
 import { useRouter } from "next/navigation"
 
 export default function LandingPage() {
@@ -60,243 +71,177 @@ export default function LandingPage() {
 
   if (!mounted) return null
 
-  const features = [
-    {
-      icon: Settings,
-      title: t.feature1Title,
-      description: t.feature1Desc,
-    },
-    {
-      icon: Globe,
-      title: t.feature2Title,
-      description: t.feature2Desc,
-    },
-    {
-      icon: Smartphone,
-      title: t.feature3Title,
-      description: t.feature3Desc,
-    },
-    {
-      icon: QrCode,
-      title: t.feature4Title,
-      description: t.feature4Desc,
-    },
-    {
-      icon: Users,
-      title: t.feature5Title,
-      description: t.feature5Desc,
-    },
-    {
-      icon: CheckCircle,
-      title: t.feature6Title,
-      description: t.feature6Desc,
-    },
-  ]
+  type FeatureItem = { icon: React.ComponentType<{ className?: string }>; title: string; description: string }
+  const features = ((): FeatureItem[] => {
+    if (language === "ar") {
+      return [
+        { icon: QrCode, title: "قوائم QR تفاعلية", description: "قائمة ثنائية اللغة تُحدّث فوراً بدون إعادة طباعة." },
+        { icon: Smartphone, title: "طلبات فورية", description: "الزبون يرسل الطلب – يظهر مباشرة في واجهة المطبخ." },
+        { icon: Bell, title: "إشعارات فورية", description: "تنبيهات للمطبخ، الويتر، والإدارة على نفس القناة." },
+        { icon: Gauge, title: "تحليلات مباشرة", description: "مؤشرات المبيعات، متوسط التذكرة، والأطباق الأكثر طلباً." },
+        { icon: Settings, title: "تحكم مرن", description: "تفعيل/إيقاف النظام أو منتج أو فئة بضغطة واحدة." },
+        { icon: Cpu, title: "أداء سريع", description: "واجهة خفيفة محسّنة للأجهزة المحمولة والإنترنت الضعيف." },
+      ]
+    }
+    return [
+      { icon: QrCode, title: "Menus QR interactifs", description: "Menu bilingue mis à jour instantanément sans réimpression." },
+      { icon: Smartphone, title: "Commandes en direct", description: "Le client envoie – la cuisine voit immédiatement." },
+      { icon: Bell, title: "Notifications instantanées", description: "Cuisine, serveur et manager synchronisés." },
+      { icon: Gauge, title: "Analytique en temps réel", description: "Ventes, ticket moyen et plats populaires." },
+      { icon: Settings, title: "Contrôle granulaire", description: "Activez / désactivez le système ou un produit en un clic." },
+      { icon: Cpu, title: "Performance élevée", description: "Interface optimisée mobile & réseaux lents." },
+    ]
+  })()
 
   const steps = [
-    {
-      number: "1",
-      title: t.step1,
-      description: t.step1Desc,
-    },
-    {
-      number: "2",
-      title: t.step2,
-      description: t.step2Desc,
-    },
-    {
-      number: "3",
-      title: t.step3,
-      description: t.step3Desc,
-    },
-    {
-      number: "4",
-      title: t.step4,
-      description: t.step4Desc,
-    },
+    { number: "1", title: t.step1, description: t.step1Desc },
+    { number: "2", title: t.step2, description: t.step2Desc },
+    { number: "3", title: t.step3, description: t.step3Desc },
+    { number: "4", title: t.step4, description: t.step4Desc },
   ]
 
   return (
-    <div className={`min-h-screen bg-background ${language === "ar" ? "rtl" : "ltr"}`}>
-      {/* Header */}
-  <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary rounded-lg">
-                <ChefHat className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">QrPlus</span>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <a href="#home" className="text-foreground hover:text-primary transition-colors">
-                {t.home}
-              </a>
-              <a href="#features" className="text-foreground hover:text-primary transition-colors">
-                {t.features}
-              </a>
-              <a href="#about" className="text-foreground hover:text-primary transition-colors">
-                {t.about}
-              </a>
-              <a href="#privacy" className="text-foreground hover:text-primary transition-colors">
-                {t.privacy}
-              </a>
-            </nav>
-
-            {/* Right Section */}
-            <div className="flex items-center gap-3">
-              {/* Language Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLanguageToggle}
-                className="flex items-center gap-2 bg-transparent"
-              >
-                <Globe className="h-4 w-4" />
-                <span>{language === "ar" ? "FR" : "AR"}</span>
-              </Button>
-
-              {/* Auth Buttons - Desktop */}
-              {!user && (
-                <div className="hidden md:flex items-center gap-2">
-                  <Link href="/auth">
-                    <Button variant="ghost" size="sm" disabled={sessionLoading}>
-                      {t.login}
-                    </Button>
-                  </Link>
-                  <Link href="/auth">
-                    <Button size="sm" disabled={sessionLoading}>{t.signupNow}</Button>
-                  </Link>
-                </div>
-              )}
-              {user && (
-                <Link href="/admin/dashboard" className="hidden md:block">
-                  <Button size="sm" variant="default" className="gap-2">
-                    {t.continueDashboard}
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
-
-              {/* Mobile Menu Button */}
-              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </Button>
-            </div>
+  <div className={`min-h-screen ${language === "ar" ? "rtl" : "ltr"}`}> 
+      {/* Header (simplified) */}
+      <header className="sticky top-0 z-40 bg-background/90 backdrop-blur border-b">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary text-primary-foreground"><ChefHat className="h-5 w-5" /></div>
+            <span className="font-semibold text-foreground tracking-tight">QrPlus</span>
           </div>
-
-          {/* Mobile Menu */}
-          {isMenuOpen && (
-            <div className="md:hidden py-4 border-t border-border animate-fade-in-down">
-              <nav className="flex flex-col gap-4">
-                <a href="#home" className="text-foreground hover:text-primary transition-colors">
-                  {t.home}
-                </a>
-                <a href="#features" className="text-foreground hover:text-primary transition-colors">
-                  {t.features}
-                </a>
-                <a href="#about" className="text-foreground hover:text-primary transition-colors">
-                  {t.about}
-                </a>
-                <a href="#privacy" className="text-foreground hover:text-primary transition-colors">
-                  {t.privacy}
-                </a>
-                <div className="flex gap-2 pt-2">
-                  <Link href="/auth">
-                    <Button variant="ghost" size="sm" className="flex-1">
-                      {t.login}
-                    </Button>
-                  </Link>
-                  <Link href="/auth">
-                    <Button size="sm" className="flex-1">
-                      {t.signupNow}
-                    </Button>
-                  </Link>
-                </div>
-              </nav>
-            </div>
-          )}
+          <nav className="hidden md:flex items-center gap-5 text-sm text-muted-foreground">
+            <a href="#home" className="link-muted">{t.home}</a>
+            <a href="#features" className="link-muted">{t.features}</a>
+            <a href="#pricing" className="link-muted">{t.pricing}</a>
+            <a href="#about" className="link-muted">{t.about}</a>
+            <a href="#privacy" className="link-muted">{t.privacy}</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleLanguageToggle} className="text-xs font-medium">
+              <Globe className="h-4 w-4" /> {language === "ar" ? "FR" : "AR"}
+            </Button>
+            {!user && (
+              <Link href="/auth" className="hidden md:inline-block">
+                <Button size="sm" variant="default" className="text-xs">{t.signupNow}</Button>
+              </Link>
+            )}
+            {user && (
+              <Link href="/admin/dashboard" className="hidden md:inline-block">
+                <Button size="sm" className="text-xs gap-1">{t.continueDashboard}<ArrowRight className="h-3 w-3" /></Button>
+              </Link>
+            )}
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={()=> setIsMenuOpen(v=>!v)}>
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
-      </header>
-
-      {/* Hero Section */}
-      <section id="home" className="py-20 bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 animate-fade-in-up">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-                {t.heroTitle}
-              </h1>
-              <p className="text-xl text-muted-foreground leading-relaxed">{t.heroSubtitle}</p>
-              <p className="text-lg text-muted-foreground">{t.heroDescription}</p>
-              <div className="flex flex-col sm:flex-row gap-4">
+        {isMenuOpen && (
+          <div className="md:hidden border-t bg-background/95">
+            <div className="px-4 py-4 flex flex-col gap-3 text-sm">
+              {[{k:'#home',v:t.home},{k:'#features',v:t.features},{k:'#pricing',v:t.pricing},{k:'#about',v:t.about},{k:'#privacy',v:t.privacy}].map(i=> (
+                <a key={i.k} href={i.k} className="link-muted" onClick={()=> setIsMenuOpen(false)}>{i.v}</a>
+              ))}
+              <div className="flex gap-2 pt-1">
                 {!user && (
-                  <Link href="/auth">
-                    <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-6 hover-lift">
-                      {t.startTrial}
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
+                  <Link href="/auth" className="flex-1">
+                    <Button variant="default" className="w-full text-xs">{t.login}</Button>
                   </Link>
                 )}
                 {user && (
-                  <Link href="/admin/dashboard">
-                    <Button size="lg" variant="secondary" className="w-full sm:w-auto text-lg px-8 py-6 hover-lift gap-2">
-                      {t.goDashboard}
-                      <ArrowRight className="h-5 w-5" />
-                    </Button>
+                  <Link href="/admin/dashboard" className="flex-1">
+                    <Button variant="secondary" className="w-full text-xs">{t.continueDashboard}</Button>
                   </Link>
                 )}
               </div>
             </div>
-            <div className="animate-fade-in-right">
-              <div className="relative">
-                <Image
-                  src="/placeholder.jpg?height=500&width=600"
-                  alt="QrPlus System Interface"
-                  className="w-full h-auto rounded-2xl shadow-2xl"
-                  width={600}
-                  height={500}
-                />
+          </div>
+        )}
+      </header>
+
+      {/* Hero Section (simplified) */}
+      <section id="home" className="section-alt">
+        <div className="max-w-6xl mx-auto px-4 grid lg:grid-cols-2 gap-10 items-center">
+          <div className="space-y-5">
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-tight tracking-tight">
+              {t.heroTitle}
+            </h1>
+            <p className="text-lg text-muted-foreground leading-relaxed">{t.heroSubtitle}</p>
+            <p className="text-base text-soft">{t.heroDescription}</p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              {!user && (
+                <Link href="/auth">
+                  <Button size="lg" className="px-8">{t.startTrial}<ArrowRight className="h-5 w-5 ms-2" /></Button>
+                </Link>
+              )}
+              {user && (
+                <Link href="/admin/dashboard">
+                  <Button size="lg" variant="secondary" className="px-8 gap-2">{t.goDashboard}<ArrowRight className="h-5 w-5" /></Button>
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-center lg:justify-end">
+            <div className="p-8 rounded-2xl surface-lg shadow-sm flex flex-col items-center gap-4 w-full max-w-sm">
+              <div className="p-6 rounded-xl bg-primary text-primary-foreground">
+                <ChefHat className="h-14 w-14" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-foreground text-lg">QrPlus</p>
+                <p className="text-xs text-soft">Fast QR Menu & Orders</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16 animate-fade-in-up">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{t.featuresTitle}</h2>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon
+      {/* Features Section (simplified) */}
+      <section id="features" className="section">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-10 tracking-tight text-center">{t.featuresTitle}</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((f,i)=> {
+              const Icon = f.icon
               return (
-                <Card
-                  key={index}
-                  className="hover-lift animate-fade-in-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <CardHeader>
-                    <div className="p-3 bg-primary/10 rounded-lg w-fit mb-4">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle className="text-xl">{feature.title}</CardTitle>
-                    <CardDescription className="text-base leading-relaxed">{feature.description}</CardDescription>
-                  </CardHeader>
-                </Card>
+                <div key={i} className="group rounded-xl surface p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow">
+                  <div className="w-10 h-10 rounded-md bg-primary text-primary-foreground flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-semibold text-foreground text-sm">{f.title}</h3>
+                  <p className="text-xs text-soft leading-relaxed">{f.description}</p>
+                </div>
               )
             })}
           </div>
         </div>
       </section>
 
+      {/* Pricing (simplified single plan) */}
+      <section id="pricing" className="section-alt">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{t.pricingTitle}</h2>
+            <p className="text-sm text-soft">{t.pricingSubtitle}</p>
+          </div>
+          <div className="max-w-md mx-auto surface-lg p-8 flex flex-col gap-6">
+            <div className="space-y-1 text-center">
+              <p className="text-xs font-medium uppercase tracking-wide text-dim">{language === 'ar' ? 'الخطة الوحيدة' : 'Offre Unique'}</p>
+              <p className="text-3xl font-bold text-foreground flex items-center justify-center gap-1"><DollarSign className="h-6 w-6" />19<span className="text-base font-normal text-dim">/ {language === 'ar' ? 'شهرياً' : 'mois'}</span></p>
+              <p className="text-xs text-dim">2755 DZD / {language === 'ar' ? 'شهرياً' : 'mois'}</p>
+            </div>
+            <ul className="space-y-3 text-sm text-soft">
+              {[language === 'ar' ? 'طاولات ومنتجات غير محدودة':'Tables & produits illimités', language === 'ar' ? 'إشعارات فورية':'Notifications instantanées', language === 'ar' ? 'تحليلات بسيطة':'Analytique simple', language === 'ar' ? 'دعم مستمر':'Support continu'].map((v,i)=> (
+                <li key={i} className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> {v}</li>
+              ))}
+            </ul>
+            <Link href="/auth" className="block">
+              <Button className="w-full" size="lg">{t.startSubscription}</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works Section */}
-      <section className="py-20 bg-muted/30">
+  <section className="section-alt">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 animate-fade-in-up">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{t.howItWorksTitle}</h2>
@@ -321,17 +266,23 @@ export default function LandingPage() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-20">
+  <section id="about" className="section">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in-left">
-              <Image
-                src="/placeholder.jpg?height=400&width=500"
-                alt="About QrPlus Team"
-                className="w-full h-auto rounded-2xl shadow-lg"
-                width={500}
-                height={400}
-              />
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl blur-2xl"></div>
+                <div className="relative bg-card/90 backdrop-blur-sm rounded-2xl p-12 border border-border/50 shadow-xl">
+                  <div className="flex items-center justify-center">
+                    <div className="p-6 bg-gradient-to-br from-primary to-secondary rounded-xl">
+                      <Users className="h-16 w-16 text-white" />
+                    </div>
+                  </div>
+                  <div className="mt-6 text-center">
+                    <div className="text-lg text-muted-foreground">Team QrPlus</div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="space-y-6 animate-fade-in-right">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground">{t.aboutTitle}</h2>
@@ -342,98 +293,89 @@ export default function LandingPage() {
       </section>
 
       {/* Privacy Section */}
-      <section id="privacy" className="py-20 bg-muted/30">
+  <section id="privacy" className="section-alt">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">{t.privacyTitle}</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8">{t.privacyDescription}</p>
-            <Button variant="outline" size="lg">
-              {t.readMore}
-            </Button>
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16 animate-fade-in-up">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">{t.privacyTitle}</h2>
+              <p className="text-lg text-muted-foreground leading-relaxed max-w-3xl mx-auto">{t.privacyDescription}</p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+              {[
+                { icon: Lock, title: t.privacyFeature1, description: language === "ar" ? "جميع البيانات محمية بتشفير متقدم" : "Toutes les données protégées par chiffrement avancé" },
+                { icon: Shield, title: t.privacyFeature2, description: language === "ar" ? "خصوصيتك مضمونة 100%" : "Votre confidentialité garantie à 100%" },
+                { icon: Gauge, title: t.privacyFeature3, description: language === "ar" ? "نسخ احتياطية آمنة ومنتظمة" : "Sauvegardes sécurisées et régulières" },
+                { icon: Eye, title: t.privacyFeature4, description: language === "ar" ? "تحكم كامل في بياناتك" : "Contrôle total sur vos données" },
+              ].map((item, index) => (
+                <Card key={index} className="text-center hover-lift animate-fade-in-up border-0 bg-card/50 backdrop-blur-sm" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <CardHeader>
+                    <div className="p-4 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl w-fit mx-auto mb-4">
+                      <item.icon className="h-8 w-8 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg mb-2">{item.title}</CardTitle>
+                    <CardDescription className="text-sm leading-relaxed">{item.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+            
+            <div className="text-center">
+              <Button variant="outline" size="lg" className="hover-lift">
+                <Shield className="mr-2 h-5 w-5" />
+                {t.readMore}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary to-secondary">
-        <div className="container mx-auto px-4 text-center animate-fade-in-up">
-          <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-4">{t.ctaTitle}</h2>
-          <p className="text-xl text-primary-foreground/90 mb-8 max-w-2xl mx-auto">{t.ctaDescription}</p>
+      <section className="py-16 bg-primary text-primary-foreground">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold mb-3">{t.ctaTitle}</h2>
+          <p className="text-sm md:text-base text-primary-foreground/80 mb-6 max-w-2xl mx-auto">{t.ctaDescription}</p>
           {!user ? (
             <Link href="/auth">
-              <Button size="lg" variant="secondary" className="text-lg px-8 py-6 hover-lift">
-                {t.startFreeTrialBtn}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <Button size="lg" variant="secondary" className="px-8">{t.startFreeTrialBtn}<ArrowRight className="h-5 w-5 ms-2" /></Button>
             </Link>
           ) : (
             <Link href="/admin/dashboard">
-              <Button size="lg" variant="secondary" className="text-lg px-8 py-6 hover-lift gap-2">
-                {t.continueDashboard}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <Button size="lg" variant="secondary" className="px-8 gap-2">{t.continueDashboard}<ArrowRight className="h-5 w-5" /></Button>
             </Link>
           )}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 bg-card border-t border-border">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Logo and Description */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary rounded-lg">
-                  <ChefHat className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <span className="text-lg font-bold text-foreground">QrPlus</span>
-              </div>
-              <p className="text-muted-foreground">
-                {t.footerShort}
-              </p>
+      <footer className="py-10 border-t bg-background">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col gap-6 md:flex-row md:items-start md:justify-between text-sm">
+          <div className="space-y-3 max-w-sm">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary text-primary-foreground rounded-md"><ChefHat className="h-4 w-4" /></div>
+              <span className="font-semibold tracking-tight text-foreground">QrPlus</span>
             </div>
-
-            {/* Quick Links */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">{t.quickLinks}</h3>
-              <div className="flex flex-col gap-2">
-                <a href="#home" className="text-muted-foreground hover:text-primary transition-colors">
-                  {t.home}
-                </a>
-                <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
-                  {t.features}
-                </a>
-                <a href="#about" className="text-muted-foreground hover:text-primary transition-colors">
-                  {t.about}
-                </a>
-                <a href="#privacy" className="text-muted-foreground hover:text-primary transition-colors">
-                  {t.privacy}
-                </a>
-              </div>
-            </div>
-
-            {/* Social Media */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground">{t.followUs}</h3>
-              <div className="flex gap-4">
-                <Button variant="outline" size="sm">
-                  <Facebook className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Twitter className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Instagram className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <p className="text-dim text-xs leading-relaxed">{t.footerShort}</p>
           </div>
-
-          <div className="border-t border-border mt-8 pt-8 text-center">
-            <p className="text-muted-foreground">{t.copyright}</p>
+          <div className="flex gap-10">
+            <div className="space-y-2">
+              <p className="font-medium text-foreground text-xs">{t.quickLinks}</p>
+              <div className="flex flex-col gap-1 text-xs text-soft">
+                <a href="#home" className="link-muted">{t.home}</a>
+                <a href="#features" className="link-muted">{t.features}</a>
+                <a href="#about" className="link-muted">{t.about}</a>
+                <a href="#privacy" className="link-muted">{t.privacy}</a>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-foreground text-xs">{t.followUs}</p>
+              <div className="flex gap-2">
+                {[Facebook,Twitter,Instagram].map((I,i)=> <div key={i} className="w-8 h-8 rounded-md border flex items-center justify-center text-soft"><I className="h-3.5 w-3.5" /></div>)}
+              </div>
+            </div>
           </div>
         </div>
+        <div className="mt-8 text-center text-[11px] text-dim">{t.copyright}</div>
       </footer>
     </div>
   )

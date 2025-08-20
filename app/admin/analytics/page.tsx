@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { AdminHeader, useAdminLanguage } from '@/components/admin-header'
 import { AdminLayout } from '@/components/admin-bottom-nav'
 import { Calendar, RefreshCw, BarChart3, TrendingUp, ShoppingBag, Clock, DollarSign, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { getAnalyticsTexts } from '@/lib/i18n/analytics'
 
 interface Order {
   id: number
@@ -24,11 +26,14 @@ type TimePeriod = 'today' | 'last3days' | 'lastweek' | 'lastmonth' | 'custom'
 export default function AdminAnalyticsPage() {
   const router = useRouter()
   const language = useAdminLanguage()
+  const t = useMemo(()=> getAnalyticsTexts(language), [language])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('today')
   const [customFromDate, setCustomFromDate] = useState('')
   const [customToDate, setCustomToDate] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Get date range based on selected period
   const getDateRange = useCallback((period: TimePeriod) => {
@@ -72,30 +77,31 @@ export default function AdminAnalyticsPage() {
   // Fetch orders data
   const fetchOrders = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const { from, to } = getDateRange(selectedPeriod)
-      
-      const response = await fetch('/api/orders', { cache: 'no-store' })
-      if (!response.ok) throw new Error('Failed to fetch orders')
-      
+      const controller = new AbortController()
+      const timeout = setTimeout(()=> controller.abort(), 15000)
+      const response = await fetch('/api/orders', { cache: 'no-store', signal: controller.signal })
+      clearTimeout(timeout)
+      if (!response.ok) throw new Error('failed')
       const data = await response.json()
-      if (!data.success) throw new Error(data.error)
-      
-      // Filter orders by date range
+      if (!data.success) throw new Error(data.error || 'failed')
       const filteredOrders = data.data.filter((order: Order) => {
         if (!order.created_at) return false
         const orderDate = new Date(order.created_at)
         return orderDate >= new Date(from) && orderDate <= new Date(to)
       })
-      
       setOrders(filteredOrders)
-    } catch (error) {
-      console.error('Error fetching orders:', error)
+      setUpdatedAt(new Date().toLocaleTimeString())
+      toast.success(t.toasts.refreshed)
+    } catch (e) {
+      console.error('[analytics] fetch failed', e)
       setOrders([])
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedPeriod, getDateRange])
+      setError('failed')
+      toast.error(t.toasts.refreshError)
+    } finally { setLoading(false) }
+  }, [selectedPeriod, getDateRange, t])
 
   // Load data when period changes
   useEffect(() => {
@@ -149,22 +155,13 @@ export default function AdminAnalyticsPage() {
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800 border-gray-300'
   }
 
-  const getPeriodLabel = (period: TimePeriod) => {
-    const labels = {
-      today: language === 'ar' ? 'اليوم' : "Aujourd'hui",
-      last3days: language === 'ar' ? 'آخر 3 أيام' : '3 derniers jours',
-      lastweek: language === 'ar' ? 'الأسبوع الماضي' : 'Semaine dernière',
-      lastmonth: language === 'ar' ? 'الشهر الماضي' : 'Mois dernier',
-      custom: language === 'ar' ? 'مخصص' : 'Personnalisé'
-    }
-    return labels[period]
-  }
+  const getPeriodLabel = (period: TimePeriod) => t.periods[period]
 
   return (
     <AdminLayout>
-      <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 ${language === 'ar' ? 'rtl' : 'ltr'}`}>
+      <div className={`min-h-screen ${language === 'ar' ? 'rtl' : 'ltr'}`}>
         <AdminHeader 
-          title={language === 'ar' ? 'التحليلات' : 'Analytics'} 
+          title={t.title} 
           showBackButton={true}
           onBackClick={() => router.push('/admin/dashboard')}
         />
@@ -173,25 +170,28 @@ export default function AdminAnalyticsPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                {language === 'ar' ? 'تحليلات الطلبات' : 'Analyses des Commandes'}
-              </h1>
-              <p className="text-slate-600 mt-1">
-                {language === 'ar' ? 'عرض إحصائيات مفصلة عن الطلبات' : 'Statistiques détaillées des commandes'}
-              </p>
+              <h1 className="text-3xl font-bold tracking-tight">{t.pageTitle}</h1>
+              <p className="text-muted-foreground mt-1">{t.pageSubtitle}</p>
             </div>
-            <Button onClick={fetchOrders} disabled={loading} variant="outline">
-              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              {language === 'ar' ? 'تحديث' : 'Actualiser'}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={fetchOrders} disabled={loading} variant="secondary" className="flex items-center gap-2">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {t.refresh}
+              </Button>
+              {updatedAt && (
+                <div className="text-xs bg-muted/60 text-muted-foreground px-3 py-1 rounded-full">
+                  {t.updatedAt}: {updatedAt}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Time Period Selector */}
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-border/60">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {language === 'ar' ? 'الفترة الزمنية' : 'Période'}
+                {t.title}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -202,7 +202,7 @@ export default function AdminAnalyticsPage() {
                     variant={selectedPeriod === period ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedPeriod(period)}
-                    className={selectedPeriod === period ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                    className={selectedPeriod === period ? 'bg-primary text-primary-foreground' : ''}
                   >
                     {getPeriodLabel(period)}
                   </Button>
@@ -212,8 +212,8 @@ export default function AdminAnalyticsPage() {
               {selectedPeriod === 'custom' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-slate-600 mb-2 block">
-                      {language === 'ar' ? 'من تاريخ' : 'Date de début'}
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      {t.dateFrom}
                     </label>
                     <Input
                       type="date"
@@ -222,8 +222,8 @@ export default function AdminAnalyticsPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 mb-2 block">
-                      {language === 'ar' ? 'إلى تاريخ' : 'Date de fin'}
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      {t.dateTo}
                     </label>
                     <Input
                       type="date"
@@ -237,74 +237,71 @@ export default function AdminAnalyticsPage() {
           </Card>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-700 mb-1">
-                      {language === 'ar' ? 'إجمالي الطلبات' : 'Total Commandes'}
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">
+                      {t.stats.totalOrders}
                     </p>
-                    <p className="text-3xl font-bold text-blue-900">
+                    <p className="text-3xl font-bold tabular-nums">
                       {analytics.totalOrders.toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-3 bg-blue-200/50 rounded-full">
-                    <ShoppingBag className="h-6 w-6 text-blue-700" />
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <ShoppingBag className="h-6 w-6 text-primary" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200 shadow-sm">
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-green-700 mb-1">
-                      {language === 'ar' ? 'إجمالي الإيرادات' : 'Revenus Total'}
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">
+                      {t.stats.totalRevenue}
                     </p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {analytics.totalRevenue.toLocaleString()} {language === 'ar' ? 'دج' : 'DZD'}
+                    <p className="text-3xl font-bold tabular-nums">
+                      {analytics.totalRevenue.toLocaleString()} {t.currency}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-200/50 rounded-full">
-                    <DollarSign className="h-6 w-6 text-green-700" />
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <DollarSign className="h-6 w-6 text-primary" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 shadow-sm">
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-purple-700 mb-1">
-                      {language === 'ar' ? 'متوسط الطلب' : 'Commande Moyenne'}
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">
+                      {t.stats.averageOrder}
                     </p>
-                    <p className="text-3xl font-bold text-purple-900">
-                      {analytics.averageOrderValue.toFixed(0)} {language === 'ar' ? 'دج' : 'DZD'}
+                    <p className="text-3xl font-bold tabular-nums">
+                      {analytics.averageOrderValue.toFixed(0)} {t.currency}
                     </p>
                   </div>
-                  <div className="p-3 bg-purple-200/50 rounded-full">
-                    <TrendingUp className="h-6 w-6 text-purple-700" />
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <TrendingUp className="h-6 w-6 text-primary" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 shadow-sm">
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-orange-700 mb-1">
-                      {language === 'ar' ? 'الطلبات المكتملة' : 'Commandes Servies'}
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">
+                      {t.stats.servedOrders}
                     </p>
-                    <p className="text-3xl font-bold text-orange-900">
+                    <p className="text-3xl font-bold tabular-nums">
                       {analytics.statusCounts.served || 0}
                     </p>
                   </div>
-                  <div className="p-3 bg-orange-200/50 rounded-full">
-                    <Clock className="h-6 w-6 text-orange-700" />
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <Clock className="h-6 w-6 text-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -313,11 +310,11 @@ export default function AdminAnalyticsPage() {
 
           {/* Status Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="shadow-sm border-slate-200">
+            <Card className="shadow-sm border-border/60">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
-                  {language === 'ar' ? 'حالة الطلبات' : 'Statut des Commandes'}
+                  {t.statusBreakdown}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -326,7 +323,7 @@ export default function AdminAnalyticsPage() {
                     <div key={status} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
                       <div className="flex items-center gap-3">
                         <Badge className={getStatusColor(status)}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                          {t.statuses[status as keyof typeof t.statuses] || status}
                         </Badge>
                       </div>
                       <span className="font-semibold text-slate-700">{count}</span>
@@ -337,18 +334,18 @@ export default function AdminAnalyticsPage() {
             </Card>
 
             {/* Daily Breakdown */}
-            <Card className="shadow-sm border-slate-200">
+    <Card className="shadow-sm border-border/60">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  {language === 'ar' ? 'الإحصائيات اليومية' : 'Statistiques Quotidiennes'}
+      {t.dailyStats}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
                   {analytics.dailyStats.length === 0 ? (
                     <p className="text-slate-500 text-center py-6">
-                      {language === 'ar' ? 'لا توجد بيانات للفترة المحددة' : 'Aucune donnée pour cette période'}
+          {t.noDailyData}
                     </p>
                   ) : (
                     analytics.dailyStats.map((day) => (
@@ -358,12 +355,12 @@ export default function AdminAnalyticsPage() {
                             {new Date(day.date).toLocaleDateString(language === 'ar' ? 'ar-DZ' : 'fr-FR')}
                           </p>
                           <p className="text-sm text-slate-600">
-                            {day.orders} {language === 'ar' ? 'طلبات' : 'commandes'}
+            {day.orders} {language === 'ar' ? 'طلبات' : 'commandes'}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-slate-800">
-                            {day.revenue.toLocaleString()} {language === 'ar' ? 'دج' : 'DZD'}
+            {day.revenue.toLocaleString()} {t.currency}
                           </p>
                         </div>
                       </div>
@@ -375,12 +372,12 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Recent Orders */}
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-border/60">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="h-5 w-5" />
-                  {language === 'ar' ? 'الطلبات الأخيرة' : 'Commandes Récentes'}
+                  {t.recentOrders}
                 </div>
                 <Badge variant="secondary">{orders.length}</Badge>
               </CardTitle>
@@ -390,14 +387,14 @@ export default function AdminAnalyticsPage() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                   <span className="ml-2 text-slate-600">
-                    {language === 'ar' ? 'جاري التحميل...' : 'Chargement...'}
+                    {t.loading}
                   </span>
                 </div>
               ) : orders.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingBag className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                   <p className="text-slate-600 font-medium">
-                    {language === 'ar' ? 'لا توجد طلبات في هذه الفترة' : 'Aucune commande pour cette période'}
+                    {t.noOrdersPeriod}
                   </p>
                 </div>
               ) : (
@@ -412,12 +409,12 @@ export default function AdminAnalyticsPage() {
                           {language === 'ar' ? 'طاولة' : 'Table'} {order.table_id}
                         </div>
                         <Badge className={getStatusColor(order.status)}>
-                          {order.status}
+                          {t.statuses[order.status as keyof typeof t.statuses] || order.status}
                         </Badge>
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-slate-800">
-                          {order.total.toLocaleString()} {language === 'ar' ? 'دج' : 'DZD'}
+                          {order.total.toLocaleString()} {t.currency}
                         </div>
                         <div className="text-sm text-slate-500">
                           {new Date(order.created_at).toLocaleString(language === 'ar' ? 'ar-DZ' : 'fr-FR')}
@@ -428,7 +425,7 @@ export default function AdminAnalyticsPage() {
                   {orders.length > 50 && (
                     <div className="text-center py-4 border-t">
                       <p className="text-sm text-slate-500">
-                        {language === 'ar' ? `عرض 50 من أصل ${orders.length} طلب` : `Affichage de 50 sur ${orders.length} commandes`}
+                        {language==='ar' ? t.showingOf(50, orders.length) : t.showingOf(50, orders.length)}
                       </p>
                     </div>
                   )}

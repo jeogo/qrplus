@@ -45,6 +45,12 @@ interface OrdersTranslations {
     ready: string
     served: string
   }
+  viewModes?: {
+    cards: string
+    list: string
+    compact: string
+  }
+  itemsLabel?: string
 }
 
 export const adminOrdersTexts: Record<AdminLang, OrdersTranslations> = {
@@ -91,7 +97,9 @@ export const adminOrdersTexts: Record<AdminLang, OrdersTranslations> = {
       approved: 'مقبول',
       ready: 'جاهز',
       served: 'مُقدَّم'
-    }
+  },
+  viewModes: { cards: 'بطاقات', list: 'قائمة', compact: 'مضغوط' },
+  itemsLabel: 'العناصر'
   },
   fr: {
     title: 'Commandes',
@@ -136,7 +144,9 @@ export const adminOrdersTexts: Record<AdminLang, OrdersTranslations> = {
       approved: 'Approuvée',
       ready: 'Prête',
       served: 'Servie'
-    }
+  },
+  viewModes: { cards: 'Cartes', list: 'Liste', compact: 'Compact' },
+  itemsLabel: 'Articles'
   }
 }
 

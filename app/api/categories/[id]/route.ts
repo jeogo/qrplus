@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
 import { requireSession } from '@/lib/auth/session'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    const idNum = Number(params.id)
+  const { id } = await params
+  const idNum = Number(id)
     if (!idNum) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
     const body = await req.json()
     const updates: Partial<{
@@ -33,11 +34,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    const idNum = Number(params.id)
+  const { id } = await params
+  const idNum = Number(id)
     if (!idNum) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
     const db = admin.firestore()
     const catRef = db.collection('categories').doc(String(idNum))

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
@@ -21,10 +21,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Plus, Edit, Trash2, Users, Shield, CheckCircle, Loader2, RefreshCw, Search } from "lucide-react"
+import { Plus, Users, Shield, Loader2, RefreshCw, Search } from "lucide-react"
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminUsersTexts } from "@/lib/i18n/admin-users"
+import { UserCard } from './components/user-card'
+import { UsersToolbar } from './components/users-toolbar'
+import { UsersSkeletonGrid } from './components/users-skeleton-grid'
+import { UserDialog } from './components/user-dialog'
+import { UsersEmptyState } from './components/empty-state'
+import { toast } from 'sonner'
 
 interface User {
   id: number
@@ -34,6 +40,8 @@ interface User {
   active: boolean
   created_at: string
   updated_at: string
+  // derived permissions list for card (mapped later)
+  _derivedPermissions?: { key: string; label: string; active: boolean }[]
 }
 
 // i18n handled via external file
@@ -60,6 +68,8 @@ export default function UsersAdminPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [search, setSearch] = useState("")
   const [adminEmail, setAdminEmail] = useState<string>("")
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false)
 
   const t = useMemo(()=> getAdminUsersTexts(language),[language])
 
@@ -73,7 +83,16 @@ export default function UsersAdminPage() {
     setLoading(true)
     try {
       const data = await api<{ success: boolean; data: User[] }>(`/api/admin/users`)
-      setUsers(data.data)
+      // map derived permissions for display
+      const mapped = data.data.map(u=> ({
+        ...u,
+        _derivedPermissions: [
+          { key:'approve_orders', label: t.approveOrders, active: u.permissions.approve_orders },
+          { key:'serve_orders', label: t.serveOrders, active: u.permissions.serve_orders },
+          { key:'make_ready', label: t.makeReady, active: u.permissions.make_ready },
+        ]
+      }))
+      setUsers(mapped)
       // Also fetch admin settings for email once
       if (!adminEmail) {
         try {
@@ -85,8 +104,8 @@ export default function UsersAdminPage() {
         } catch {}
       }
     } catch (e) {
-      console.error('users load failed', e)
-      console.log('Admin: Error loading users')
+  console.error('users load failed', e)
+  toast.error(t.loadError)
     } finally {
       setLoading(false)
     }
@@ -135,37 +154,65 @@ export default function UsersAdminPage() {
       const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('delete failed')
       setUsers(users.filter(u=>u.id!==userId))
-      console.log('Admin: User deleted successfully')
+      toast.success(t.deleted)
     } catch (e) {
       console.error(e)
-      console.log('Admin: Error deleting user')
+      toast.error(t.deleteError)
     } finally { setDeletingId(null) }
   }
 
-  const handleSave = async () => {
+  const performSave = async () => {
     if (!formData.username.trim()) return
     setSaving(true)
     try {
       if (editingUser) {
-  const payload: { username: string; role: 'waiter' | 'kitchen'; permissions: User['permissions']; password?: string } = { username: formData.username, role: formData.role, permissions: formData.permissions }
+        const payload: { username: string; role: 'waiter' | 'kitchen'; permissions: User['permissions']; password?: string } = { username: formData.username, role: formData.role, permissions: formData.permissions }
         if (formData.password) payload.password = formData.password
+        // optimistic update
+        const optimisticUsers = users.map(u=> u.id===editingUser.id? { ...u, username: payload.username, role: payload.role, permissions: payload.permissions, _derivedPermissions:[
+          { key:'approve_orders', label: t.approveOrders, active: payload.permissions.approve_orders },
+          { key:'serve_orders', label: t.serveOrders, active: payload.permissions.serve_orders },
+          { key:'make_ready', label: t.makeReady, active: payload.permissions.make_ready },
+        ], __flash:true }: u)
+        setUsers(optimisticUsers)
         const res = await fetch(`/api/admin/users/${editingUser.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
         if (!res.ok) throw new Error('update failed')
         const json = await res.json()
-        setUsers(users.map(u=>u.id===editingUser.id? json.data : u))
-        console.log('Admin: User updated successfully')
+        setUsers(users.map(u=>u.id===editingUser.id? { ...json.data, _derivedPermissions: [
+          { key:'approve_orders', label: t.approveOrders, active: json.data.permissions.approve_orders },
+          { key:'serve_orders', label: t.serveOrders, active: json.data.permissions.serve_orders },
+          { key:'make_ready', label: t.makeReady, active: json.data.permissions.make_ready },
+        ], __flash:true } : u))
+        toast.success(t.updated)
       } else {
+        const tempId = Date.now()*-1
+        const optimistic = { id: tempId, username: formData.username, role: formData.role, permissions: formData.permissions, active:true, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), _derivedPermissions:[
+          { key:'approve_orders', label: t.approveOrders, active: formData.permissions.approve_orders },
+          { key:'serve_orders', label: t.serveOrders, active: formData.permissions.serve_orders },
+          { key:'make_ready', label: t.makeReady, active: formData.permissions.make_ready },
+        ], __flash:true }
+        setUsers([...users, optimistic as any])
         const res = await fetch(`/api/admin/users`, { method: 'POST', body: JSON.stringify({ username: formData.username, password: formData.password, role: formData.role, permissions: formData.permissions }) })
         if (!res.ok) throw new Error('create failed')
         const json = await res.json()
-        setUsers([...users, json.data])
-        console.log('Admin: User created successfully')
+        setUsers(prev=> prev.map(u=> u.id===tempId? { ...json.data, _derivedPermissions:[
+          { key:'approve_orders', label: t.approveOrders, active: json.data.permissions.approve_orders },
+          { key:'serve_orders', label: t.serveOrders, active: json.data.permissions.serve_orders },
+          { key:'make_ready', label: t.makeReady, active: json.data.permissions.make_ready },
+        ], __flash:true }: u))
+        toast.success(t.created)
       }
       setIsDialogOpen(false)
     } catch (e) {
       console.error(e)
-      console.log('Admin: Error saving user')
-    } finally { setSaving(false) }
+      toast.error(t.saveError)
+      // rollback by reloading
+      void loadUsers()
+    } finally { setSaving(false); setConfirmSaveOpen(false); setPendingSave(false) }
+  }
+
+  const requestSave = () => {
+    setConfirmSaveOpen(true)
   }
 
   const handleRoleChange = (role: "waiter" | "kitchen") => {
@@ -178,6 +225,7 @@ export default function UsersAdminPage() {
         make_ready: role === "kitchen",
       },
     })
+  toast.info(t.roleChangedNote)
   }
 
   const handlePermissionChange = (permission: keyof User["permissions"], value: boolean) => {
@@ -201,17 +249,12 @@ export default function UsersAdminPage() {
       />
 
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 container mx-auto px-4 py-6 space-y-6">
-        {/* Actions Bar */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200/50 p-4 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-          <div className="relative w-full md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder={t.searchPlaceholder} value={search} onChange={e=>setSearch(e.target.value)} className="pl-10" />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={()=> { setSearch(''); void loadUsers() }} className="flex items-center gap-2"><RefreshCw className="h-4 w-4" />{t.refresh}</Button>
-            <Button onClick={handleAddUser} className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md"><Plus className="h-4 w-4" /> {t.addUser}</Button>
-          </div>
-        </div>
+        <UsersToolbar 
+          onAdd={handleAddUser} 
+          onRefresh={()=> { toast.info(t.refresh); void loadUsers() }} 
+          onSearch={setSearch}
+          texts={{ search: t.searchPlaceholder, add: t.addUser, refresh: t.refresh, clear: t.cancel }}
+        />
         {/* Current Admin User Card */}
         <Card className="mb-6 border-primary/20 bg-primary/5 animate-fade-in-down">
           <CardHeader className="pb-3">
@@ -229,212 +272,55 @@ export default function UsersAdminPage() {
         </Card>
         {/* Users Grid */}
         {loading ? (
-          <div className="text-center py-24">
-            <Loader2 className="h-10 w-10 mx-auto mb-4 animate-spin text-blue-600" />
-            <p className="text-slate-500">{t.loadError.replace(/ .*/, '')}...</p>
-          </div>
+          <UsersSkeletonGrid />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-xl border border-slate-200/50 shadow-sm">
-            <Users className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">{t.noUsers}</h3>
-            <p className="text-muted-foreground">{t.addFirst}</p>
-            <Button onClick={handleAddUser} className="mt-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">{t.addUser}</Button>
-          </div>
+          <UsersEmptyState title={t.noUsers} description={t.addFirst} cta={t.addUser} onAdd={handleAddUser} />
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((user, index) => (
-              <Card
-                key={user.id}
-                className="hover-lift interactive animate-fade-in-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {user.username}
-                        <Badge variant={user.role === "waiter" ? "default" : "secondary"} className={user.role==='waiter'? 'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}>
-                          {user.role === "waiter" ? t.roles.waiter : t.roles.kitchen}
-                        </Badge>
-                      </CardTitle>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)} className="interactive">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive interactive"
-                            disabled={deletingId===user.id}
-                          >
-                            {deletingId===user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="animate-scale-in">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
-                            <AlertDialogDescription>{t.confirmDeleteDesc}</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="bg-destructive hover:bg-destructive/90"
-                            >
-                              {t.delete}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <h4 className="text-sm font-medium text-foreground mb-2">{t.permissions}:</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span>{t.approveOrders}</span>
-                        <div className="flex items-center gap-1">
-                          {user.permissions.approve_orders ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                          )}
-                          <span className="text-muted-foreground">{user.permissions.approve_orders ? t.yes : t.no}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>{t.serveOrders}</span>
-                        <div className="flex items-center gap-1">
-                          {user.permissions.serve_orders ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                          )}
-                          <span className="text-muted-foreground">{user.permissions.serve_orders ? t.yes : t.no}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>{t.makeReady}</span>
-                        <div className="flex items-center gap-1">
-                          {user.permissions.make_ready ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                          )}
-                          <span className="text-muted-foreground">{user.permissions.make_ready ? t.yes : t.no}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filtered.map((user)=> (
+              <UserCard 
+                key={user.id} 
+                user={user} 
+                isEditing={editingUser?.id===user.id}
+                onEdit={handleEditUser}
+                onDelete={(u)=> handleDeleteUser(u.id)}
+                texts={{ waiter: t.roles.waiter, kitchen: t.roles.kitchen, edit: t.edit, del: t.delete, permissions: t.permissions }}
+                // highlight new/updated
+                // wrapper class injection after rendering
+              />
             ))}
           </div>
         )}
 
-        {/* Add/Edit User Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[500px] animate-scale-in">
-            <DialogHeader>
-              <DialogTitle>{editingUser ? t.editUser : t.addUser}</DialogTitle>
-              <DialogDescription>
-                {editingUser ? (language==='ar'? 'قم بتحديث معلومات المستخدم وحفظ التغييرات':'Mettez à jour les informations de l\'utilisateur puis enregistrez') : (language==='ar'? 'أدخل بيانات المستخدم الجديد ثم احفظ':'Renseignez les détails du nouvel utilisateur puis enregistrez')}
-              </DialogDescription>
-            </DialogHeader>
+        <UserDialog 
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          editing={!!editingUser}
+          language={language}
+          saving={saving}
+          formData={formData}
+          setFormData={d=> setFormData(d)}
+          t={t}
+          onRoleChange={handleRoleChange}
+          onPermissionChange={handlePermissionChange}
+          onRequestSave={requestSave}
+        />
 
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="username">{t.username}</Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  required
-                  className="form-field"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="password">{t.password}</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required={!editingUser}
-                  placeholder={editingUser ? t.passwordLeaveBlank : ""}
-                  className="form-field"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="role">{t.role}</Label>
-                <Select value={formData.role} onValueChange={handleRoleChange}>
-                  <SelectTrigger className="form-field">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="waiter">{t.roles.waiter}</SelectItem>
-                    <SelectItem value="kitchen">{t.roles.kitchen}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-3">
-                <Label>{t.permissions}</Label>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="approve_orders" className="text-sm font-normal">
-                      {t.approveOrders}
-                    </Label>
-                    <Switch
-                      id="approve_orders"
-                      checked={formData.permissions.approve_orders}
-                      onCheckedChange={(checked) => handlePermissionChange("approve_orders", checked)}
-                      disabled={formData.role === "kitchen"}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="serve_orders" className="text-sm font-normal">
-                      {t.serveOrders}
-                    </Label>
-                    <Switch
-                      id="serve_orders"
-                      checked={formData.permissions.serve_orders}
-                      onCheckedChange={(checked) => handlePermissionChange("serve_orders", checked)}
-                      disabled={formData.role === "kitchen"}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="make_ready" className="text-sm font-normal">
-                      {t.makeReady}
-                    </Label>
-                    <Switch
-                      id="make_ready"
-                      checked={formData.permissions.make_ready}
-                      onCheckedChange={(checked) => handlePermissionChange("make_ready", checked)}
-                      disabled={formData.role === "waiter"}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)}>
-                {t.cancel}
-              </Button>
-              <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md">
-                {saving ? (<><Loader2 className="h-4 w-4 animate-spin mr-2" />{t.save}</>) : t.save}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Confirm Save Dialog */}
+        <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t.confirmSaveTitle}</AlertDialogTitle>
+              <AlertDialogDescription>{t.confirmSaveDesc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>{t.cancel}</AlertDialogCancel>
+              <AlertDialogAction onClick={performSave} disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 animate-spin me-1" />}{t.confirm}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </AdminLayout>
   )

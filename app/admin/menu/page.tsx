@@ -12,33 +12,17 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 // removed Select for auto category assignment
 import { Switch } from "@/components/ui/switch"
 import { Search, Plus, Edit, Trash2, Loader2, RefreshCw, Image as ImageIcon } from "lucide-react"
+import { toast } from 'sonner'
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminMenuTexts } from "@/lib/i18n/admin-menu"
+import { CategoryCard } from './components/category-card'
+import { ProductCard } from './components/product-card'
+import { SkeletonCard } from './components/skeleton-card'
+import type { Category as CategoryType, Product as ProductType } from './components/types'
 
-interface Category {
-  id: number
-  account_id: number
-  name: string
-  description?: string
-  active: boolean
-  created_at: string
-  updated_at: string
-  image_url?: string
-}
-
-interface Product {
-  id: number
-  account_id: number
-  category_id: number
-  name: string
-  description?: string
-  price: number
-  image_url?: string
-  available: boolean
-  created_at: string
-  updated_at: string
-}
+type Category = CategoryType
+type Product = ProductType
 
 export default function MenuAdminPage() {
   const language = useAdminLanguage()
@@ -51,8 +35,13 @@ export default function MenuAdminPage() {
   const [isProductMode, setIsProductMode] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null)
 
   const L = useMemo(() => getAdminMenuTexts(language), [language])
 
@@ -91,18 +80,23 @@ export default function MenuAdminPage() {
   const currency = settings?.currency || 'DZD'
   const formatPrice = useCallback((value:number)=> new Intl.NumberFormat(language==='ar'?'ar-DZ':'fr-DZ',{style:'currency',currency,minimumFractionDigits:2}).format(value),[language,currency])
 
-  const refreshCategories = useCallback(async () => {
+  const refreshCategories = useCallback(async (q?: string) => {
+    setError(null)
     setLoading(true)
     try {
-      const data = await api<{ success: boolean; data: Category[] }>("/api/categories")
+      const qp = new URLSearchParams()
+      qp.set('limit','100')
+      if (q) qp.set('q', q)
+      const data = await api<{ success: boolean; data: Category[] }>(`/api/categories?${qp.toString()}`)
       setCategories(data as unknown as Category[])
     } catch (e) {
       console.error('categories load failed', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      setError('categories')
+      toast.error(language==='ar'? 'فشل تحميل الفئات':'Échec du chargement des catégories')
+    } finally { setLoading(false) }
+  }, [language])
 
+  // declare debouncedSearch earlier (placeholder, will assign after hook defined)
   useEffect(() => {
     setMounted(true)
     void refreshCategories()
@@ -116,17 +110,34 @@ export default function MenuAdminPage() {
 
   // refreshCategories defined above with useCallback
 
-  async function refreshProducts(categoryId?: number) {
+  async function refreshProducts(categoryId?: number, q?: string) {
     if (!categoryId) return
+    setLoadingProducts(true)
     try {
-      const data = await api<{ success: boolean; data: Product[] }>(`/api/products?category_id=${categoryId}`)
+      const qp = new URLSearchParams()
+      qp.set('category_id', String(categoryId))
+      qp.set('limit','200')
+      if (q) qp.set('q', q)
+      const data = await api<{ success: boolean; data: Product[] }>(`/api/products?${qp.toString()}`)
       setProducts(data as unknown as Product[])
     } catch (e) {
       console.error('products load failed', e)
-    }
+      toast.error(language==='ar'? 'فشل تحميل المنتجات':'Échec du chargement des produits')
+    } finally { setLoadingProducts(false) }
   }
 
-  const handleSave = async (formData: FormData) => {
+  function useDebounce<T>(value: T, delay = 320) {
+    const [d, setD] = useState(value)
+    useEffect(()=> { const id = setTimeout(()=> setD(value), delay); return ()=> clearTimeout(id) }, [value, delay])
+    return d
+  }
+  const debouncedSearch = useDebounce(searchTerm.trim())
+
+  // remote search effects (after debouncedSearch defined)
+  useEffect(()=> { if (!mounted) return; void refreshCategories(debouncedSearch || undefined) }, [debouncedSearch, mounted, refreshCategories])
+  useEffect(()=> { if (!mounted || !selectedCategory) return; void refreshProducts(selectedCategory, debouncedSearch || undefined) }, [debouncedSearch, selectedCategory, mounted])
+
+  const performSave = async (formData: FormData) => {
     setSaving(true)
     try {
       // helper to upload file if we have a new one (category & product share logic)
@@ -165,15 +176,18 @@ export default function MenuAdminPage() {
           available: formData.get('available') === 'on',
         }
         if (editingItem && 'price' in editingItem) {
+          const prev = [...products]
+          setProducts(products.map(p => p.id === editingItem.id ? { ...p, ...payload } : p))
           const res = await fetch(`/api/products/${editingItem.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
-          if (!res.ok) throw new Error('Update failed')
-          const json = await res.json()
-          setProducts(products.map(p => p.id === editingItem.id ? json.data : p))
+          if (!res.ok) { setProducts(prev); throw new Error('Update failed') }
+          const json = await res.json(); setProducts(products.map(p => p.id === editingItem.id ? json.data : p))
         } else {
+          const tempId = Date.now()
+          const optimistic = { id: tempId, account_id: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), category_id: payload.category_id, available: payload.available, price: payload.price, name: payload.name, description: payload.description, image_url: payload.image_url } as Product
+          setProducts([...products, optimistic])
           const res = await fetch('/api/products', { method: 'POST', body: JSON.stringify(payload) })
-          if (!res.ok) throw new Error('Create failed')
-          const json = await res.json()
-          setProducts([...products, json.data])
+          if (!res.ok) { setProducts(products.filter(p=>p.id!==tempId)); throw new Error('Create failed') }
+          const json = await res.json(); setProducts(prev=> prev.map(p=> p.id===tempId ? json.data : p))
         }
       } else {
         const image_url = await ensureImageUrl('image_url', true)
@@ -185,25 +199,36 @@ export default function MenuAdminPage() {
         }
         if (!payload.image_url) throw new Error('Image required')
         if (editingItem && 'active' in editingItem) {
+          const prev = [...categories]
+            setCategories(categories.map(c => c.id === editingItem.id ? { ...c, ...payload } : c))
           const res = await fetch(`/api/categories/${editingItem.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
-          if (!res.ok) throw new Error('Update failed')
-          const json = await res.json()
-          setCategories(categories.map(c => c.id === editingItem.id ? json.data : c))
+          if (!res.ok) { setCategories(prev); throw new Error('Update failed') }
+          const json = await res.json(); setCategories(categories.map(c => c.id === editingItem.id ? json.data : c))
         } else {
+          const tempId = Date.now()
+          const optimistic = { id: tempId, account_id:0, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), name: payload.name, description: payload.description, active: payload.active, image_url: payload.image_url } as Category
+          setCategories([...categories, optimistic])
           const res = await fetch('/api/categories', { method: 'POST', body: JSON.stringify(payload) })
-          if (!res.ok) throw new Error('Create failed')
-          const json = await res.json()
-          setCategories([...categories, json.data])
+          if (!res.ok) { setCategories(categories.filter(c=>c.id!==tempId)); throw new Error('Create failed') }
+          const json = await res.json(); setCategories(prev=> prev.map(c=> c.id===tempId ? json.data : c))
         }
       }
       setIsDialogOpen(false)
       setEditingItem(null)
       if (selectedCategory) void refreshProducts(selectedCategory)
+      toast.success(language==='ar'? 'تم الحفظ':'Enregistré')
     } catch (error) {
       console.error('Error saving:', error)
+      toast.error(language==='ar'? 'فشل الحفظ':'Échec de la sauvegarde')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSave = async (formData: FormData) => {
+    if (saving) return
+    setPendingFormData(formData)
+    setConfirmSaveOpen(true)
   }
 
   const handleDelete = async (id: number, isProduct: boolean) => {
@@ -220,8 +245,10 @@ export default function MenuAdminPage() {
         setProducts(products.filter(p => p.category_id !== id))
         if (selectedCategory === id) setSelectedCategory(null)
       }
+      toast.success(language==='ar'? 'تم الحذف':'Supprimé')
     } catch (error) {
       console.error('Error deleting:', error)
+      toast.error(language==='ar'? 'فشل الحذف':'Échec de la suppression')
     } finally {
       setDeletingId(null)
     }
@@ -241,82 +268,121 @@ export default function MenuAdminPage() {
     )
   }
 
-  const filteredCategories = categories.filter((cat) => cat.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const s = searchTerm.toLowerCase()
+  const filteredCategories = categories.filter((cat) => {
+    if (s && !cat.name.toLowerCase().includes(s)) return false
+    return true
+  })
 
-  const filteredProducts = products.filter(
-    (prod) =>
-  (!selectedCategory || prod.category_id === selectedCategory) &&
-      prod.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const filteredProducts = products.filter((prod) => {
+    if (s && !prod.name.toLowerCase().includes(s)) return false
+    return !selectedCategory || prod.category_id === selectedCategory
+  })
 
   // ... existing code for handlers ...
 
   return (
     <AdminLayout>
       <AdminHeader title={L.title} showBackButton={!!selectedCategory} onBackClick={()=>setSelectedCategory(null)} backText={L.back} />
-      <main className={`min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 ${language==='ar'?'rtl':'ltr'}`}>
-        <div className="p-4 pb-24 max-w-7xl mx-auto space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200/50 p-6">
-            <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input placeholder={L.searchPlaceholder} value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500" />
+      <main className={`min-h-screen bg-slate-50 ${language==='ar'?'rtl':'ltr'}`}>
+        <div className="px-4 py-6 pb-24 max-w-6xl mx-auto space-y-8">
+          {/* Modern Header Card */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-6">
+            {/* Search Section */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input 
+                  placeholder={L.searchPlaceholder} 
+                  value={searchTerm} 
+                  onChange={e=>setSearchTerm(e.target.value)} 
+                  className="pl-12 h-12 text-base rounded-2xl border-slate-200 focus:border-blue-400 focus:ring-blue-100 bg-slate-50 focus:bg-white transition-all" 
+                  aria-label="search"
+                />
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={()=>{ setSearchTerm(''); void refreshCategories(); if(selectedCategory) void refreshProducts(selectedCategory) }} className="flex items-center gap-2 border-slate-200 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> {L.refresh}</Button>
+              <div className="flex gap-3 w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={()=>{ if (refreshing) return; setRefreshing(true); setSearchTerm(''); Promise.all([refreshCategories(), selectedCategory? refreshProducts(selectedCategory):Promise.resolve()]).finally(()=>{ setRefreshing(false); toast.success(language==='ar'? 'تم التحديث':'Actualisé') }) }} 
+                  disabled={refreshing} 
+                  className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-slate-200 hover:bg-slate-50 transition-all"
+                >
+                  <RefreshCw className={`h-5 w-5 mr-2 ${refreshing?'animate-spin':''}`} />
+                  {L.refresh}
+                </Button>
                 {!selectedCategory ? (
-                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(false); setIsDialogOpen(true) }} className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md"><Plus className="h-4 w-4" /> {L.addCategory}</Button>
+                  <Button 
+                    onClick={()=>{ setEditingItem(null); setIsProductMode(false); setIsDialogOpen(true) }} 
+                    className="flex-1 sm:flex-none h-12 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg text-white"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    {L.addCategory}
+                  </Button>
                 ) : (
-                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(true); setIsDialogOpen(true) }} className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md"><Plus className="h-4 w-4" /> {L.addProduct}</Button>
+                  <Button 
+                    onClick={()=>{ setEditingItem(null); setIsProductMode(true); setIsDialogOpen(true) }} 
+                    className="flex-1 sm:flex-none h-12 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg text-white"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    {L.addProduct}
+                  </Button>
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              {!selectedCategory && <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><ImageIcon className="w-5 h-5 text-blue-600" /> {L.categories}</h2>}
-              {selectedCategory && <h2 className="text-xl font-semibold text-slate-900">{L.productOf} {categories.find(c=>c.id===selectedCategory)?.name}</h2>}
+
+            {/* Title & Info Section */}
+            <div className="flex items-center justify-between flex-wrap gap-4 pt-2">
+              {!selectedCategory && (
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  {L.categories}
+                </h1>
+              )}
+              {selectedCategory && (
+                <h1 className="text-2xl font-bold text-slate-900">
+                  {L.productOf} {categories.find(c=>c.id===selectedCategory)?.name}
+                </h1>
+              )}
               <div className="flex flex-col items-end gap-1">
-                <div className="text-xs md:text-sm text-slate-400 font-medium tracking-wide uppercase">{L.currencyNote}: {currency}{settingsLoading && ' …'}</div>
+                <div className="text-sm text-slate-500 font-medium">{L.currencyNote}: {currency}</div>
                 {settings?.restaurant_name && !selectedCategory && (
-                  <div className="text-[11px] md:text-xs text-slate-400 line-clamp-1 max-w-[200px] md:max-w-xs">{settings.restaurant_name}</div>
+                  <div className="text-xs text-slate-400 max-w-[200px] truncate">{settings.restaurant_name}</div>
                 )}
               </div>
             </div>
           </div>
+          {/* Content Grid */}
           {!selectedCategory && (
             <div>
-              {filteredCategories.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-xl border border-slate-200/50 shadow-sm">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-blue-600" /></div>
-                  <p className="text-slate-500 mb-4">{L.noCategories}</p>
-                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(false); setIsDialogOpen(true) }} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md"><Plus className="h-4 w-4 mr-2" /> {L.addCategory}</Button>
+              {loading ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({length: 8}).map((_,i)=>(<SkeletonCard key={i} variant="category" />))}
+                </div>
+              ) : filteredCategories.length === 0 ? (
+                <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    <ImageIcon className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <p className="text-slate-500 text-lg mb-6">{L.noCategories}</p>
+                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(false); setIsDialogOpen(true) }} className="h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg text-white">
+                    <Plus className="h-5 w-5 mr-2" /> {L.addCategory}
+                  </Button>
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredCategories.map((category,index)=>(
-                    <Card key={category.id} className="relative overflow-hidden group border-slate-200/60 hover:border-slate-300 transition-all hover:shadow-md" style={{animationDelay:`${index*0.05}s`}} onClick={()=>{ setSelectedCategory(category.id); setProducts([]); void refreshProducts(category.id) }}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white to-slate-50 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <CardHeader className="pb-3 relative z-10">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex gap-3 flex-1 min-w-0">
-                            {category.image_url ? <Image src={category.image_url} alt={category.name} width={64} height={64} className="h-16 w-16 object-cover rounded-xl border-2 border-slate-200 shadow-sm" /> : <div className="h-16 w-16 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
-                            <div className="space-y-1 min-w-0">
-                              <CardTitle className="text-lg truncate">{category.name}</CardTitle>
-                              <CardDescription className="text-xs line-clamp-2">{category.description}</CardDescription>
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={(e)=>{ e.stopPropagation(); setEditingItem(category); setIsProductMode(false); setIsDialogOpen(true) }} className="hover:bg-slate-100"><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" disabled={deletingId===category.id} onClick={(e)=>{ e.stopPropagation(); handleDelete(category.id,false) }} className="hover:bg-slate-100">{deletingId===category.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="relative z-10">
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge variant={category.active ? 'default' : 'secondary'} className={category.active ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}>{category.active ? L.active : L.inactive}</Badge>
-                          <span className="text-slate-400">{products.filter(p=>p.category_id===category.id).length} {L.products}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      productCount={products.filter(p=>p.category_id===category.id).length}
+                      deleting={deletingId===category.id}
+                      texts={{ active: L.active, inactive: L.inactive, products: L.products, deleteConfirmTitle: L.deleteConfirmTitle, deleteConfirmDescription: L.deleteConfirmDescription, confirm: L.confirm, cancel: L.cancel, editLabel: L.edit, deleteLabel: L.delete }}
+                      onEdit={(c)=> { setEditingItem(c); setIsProductMode(false); setIsDialogOpen(true) }}
+                      onDelete={(id)=> handleDelete(id,false)}
+                      onSelect={(id)=> { setSelectedCategory(id); setProducts([]); void refreshProducts(id, debouncedSearch || undefined) }}
+                    />
                   ))}
                 </div>
               )}
@@ -324,87 +390,87 @@ export default function MenuAdminPage() {
           )}
           {selectedCategory && (
             <div>
-              {filteredProducts.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-xl border border-slate-200/50 shadow-sm">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-blue-600" /></div>
-                  <p className="text-slate-500 mb-4">{L.noProducts}</p>
-                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(true); setIsDialogOpen(true) }} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md"><Plus className="h-4 w-4 mr-2" /> {L.addProduct}</Button>
+              {loadingProducts ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({length: 8}).map((_,i)=>(<SkeletonCard key={i} variant="product" />))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    <ImageIcon className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <p className="text-slate-500 text-lg mb-6">{L.noProducts}</p>
+                  <Button onClick={()=>{ setEditingItem(null); setIsProductMode(true); setIsDialogOpen(true) }} className="h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg text-white">
+                    <Plus className="h-5 w-5 mr-2" /> {L.addProduct}
+                  </Button>
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredProducts.map((product,index)=>(
-                    <Card key={product.id} className="relative overflow-hidden group border-slate-200/60 hover:border-slate-300 transition-all hover:shadow-md" style={{animationDelay:`${index*0.05}s`}}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white to-slate-50 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <CardHeader className="pb-3 relative z-10">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex gap-3 flex-1 min-w-0">
-                            {product.image_url ? <Image src={product.image_url} alt={product.name} width={64} height={64} className="h-16 w-16 object-cover rounded-xl border-2 border-slate-200 shadow-sm" /> : <div className="h-16 w-16 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
-                            <div className="space-y-1 min-w-0">
-                              <CardTitle className="text-lg truncate">{product.name}</CardTitle>
-                              <CardDescription className="text-xs line-clamp-2">{product.description}</CardDescription>
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" onClick={()=>{ setEditingItem(product); setIsProductMode(true); setIsDialogOpen(true) }} className="hover:bg-slate-100"><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" disabled={deletingId===product.id} onClick={()=>handleDelete(product.id,true)} className="hover:bg-slate-100">{deletingId===product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="relative z-10">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-lg font-semibold text-blue-600">{formatPrice(product.price)}</span>
-                          <Badge variant={product.available ? 'default' : 'secondary'} className={product.available ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}>{product.available ? L.available : L.unavailable}</Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      deleting={deletingId===product.id}
+                      onEdit={(p)=> { setEditingItem(p); setIsProductMode(true); setIsDialogOpen(true) }}
+                      onDelete={(id)=> handleDelete(id,true)}
+                      formatPrice={formatPrice}
+                      texts={{ available: L.available, unavailable: L.unavailable, deleteConfirmTitle: L.deleteConfirmTitle, deleteConfirmDescription: L.deleteConfirmDescription, confirm: L.confirm, cancel: L.cancel, editLabel: L.edit, deleteLabel: L.delete }}
+                    />
                   ))}
                 </div>
               )}
             </div>
           )}
         </div>
-        {/* Add/Edit Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={(open) => !saving && setIsDialogOpen(open)}>
-          <DialogContent className="sm:max-w-[500px]">
-            <form action={handleSave}>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingItem ? (isProductMode ? `${L.edit} ${L.products}` : `${L.edit} ${L.categories}`) : (isProductMode ? L.addProduct : L.addCategory)}
+        {/* Modern Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={(open: boolean) => !saving && setIsDialogOpen(open)}>
+          <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[560px] max-h-[88vh] overflow-y-auto rounded-3xl border-0 shadow-2xl p-0">
+            <form action={handleSave} className="space-y-6">
+              <DialogHeader className="space-y-3 pb-6 border-b border-slate-100 px-6 pt-6">
+                <DialogTitle className="text-2xl font-bold text-slate-900">
+                  {editingItem 
+                    ? (isProductMode ? L.editProductTitle : L.editCategoryTitle)
+                    : (isProductMode ? L.addProductTitle : L.addCategoryTitle)}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-base text-slate-600">
                   {editingItem ? (language==='ar'? 'قم بتعديل البيانات ثم احفظ التغييرات':'Modifiez les informations puis enregistrez') : (language==='ar'? 'أدخل تفاصيل جديدة ثم احفظ':'Renseignez les informations puis enregistrez')}
                 </DialogDescription>
               </DialogHeader>
-
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">{L.name}</Label>
+              <div className="space-y-6 px-6 pb-6">
+                <div className="space-y-3">
+                  <Label htmlFor="name" className="text-sm font-semibold text-slate-700">{L.name}</Label>
                   <Input
                     id="name"
                     name="name"
                     disabled={saving}
                     defaultValue={editingItem ? ("name" in editingItem ? editingItem.name : "") : ""}
                     required
+                    className="h-12 text-base rounded-2xl border-slate-200 focus:border-blue-400 focus:ring-blue-100 bg-slate-50 focus:bg-white transition-all"
                   />
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="description">{L.description}</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="description" className="text-sm font-semibold text-slate-700">{L.description}</Label>
                   <Textarea
                     id="description"
                     name="description"
                     disabled={saving}
                     defaultValue={editingItem ? ("description" in editingItem ? editingItem.description || "" : "") : ""}
+                    className="min-h-[100px] text-base rounded-2xl border-slate-200 focus:border-blue-400 focus:ring-blue-100 bg-slate-50 focus:bg-white transition-all resize-none"
                   />
                 </div>
 
                 {isProductMode && (
                   <>
                     <input type="hidden" name="category_id" value={selectedCategory ?? ''} />
-                    <div className="text-sm text-muted-foreground">Category: {categories.find(c=>c.id===selectedCategory)?.name}</div>
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                      <div className="text-sm font-medium text-blue-900" dir="auto">
+                        {L.categoryLabel}: {categories.find(c=>c.id===selectedCategory)?.name}
+                      </div>
+                    </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="price">{L.price}</Label>
+                    <div className="space-y-3">
+                      <Label htmlFor="price" className="text-sm font-semibold text-slate-700">{L.price}</Label>
                       <Input
                         id="price"
                         name="price"
@@ -413,58 +479,97 @@ export default function MenuAdminPage() {
                         disabled={saving}
                         defaultValue={editingItem ? (editingItem as Product).price : ""}
                         required
+                        className="h-12 text-base rounded-2xl border-slate-200 focus:border-blue-400 focus:ring-blue-100 bg-slate-50 focus:bg-white transition-all"
                       />
                     </div>
 
-                    <ImageUploader name="image_url" saving={saving} initialUrl={editingItem && 'image_url' in editingItem ? (editingItem as Product).image_url : undefined} required={false} />
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold text-slate-700">{L.imageUrl}</Label>
+                      <ImageUploader 
+                        name="image_url" 
+                        saving={saving} 
+                        initialUrl={editingItem && 'image_url' in editingItem ? (editingItem as Product).image_url : undefined} 
+                        required={false} 
+                      />
+                    </div>
                   </>
                 )}
 
                 {!isProductMode && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="image_url">{L.imageUrl}</Label>
-                    <ImageUploader name="image_url" saving={saving} required initialUrl={editingItem && 'image_url' in editingItem ? (editingItem as Category).image_url : undefined} />
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-slate-700">{L.imageUrl}</Label>
+                    <ImageUploader 
+                      name="image_url" 
+                      saving={saving} 
+                      required 
+                      initialUrl={editingItem && 'image_url' in editingItem ? (editingItem as Category).image_url : undefined} 
+                    />
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-2xl">
                   <Switch
-        id={isProductMode ? "available" : "active"}
-        name={isProductMode ? "available" : "active"}
+                    id={isProductMode ? "available" : "active"}
+                    name={isProductMode ? "available" : "active"}
                     disabled={saving}
                     defaultChecked={
                       editingItem
                         ? isProductMode
-          ? (editingItem as Product).available
-          : (editingItem as Category).active
+                          ? (editingItem as Product).available
+                          : (editingItem as Category).active
                         : true
                     }
                   />
-                  <Label htmlFor={isProductMode ? "available" : "active"}>{isProductMode ? L.available : L.active}</Label>
+                  <Label htmlFor={isProductMode ? "available" : "active"} className="text-sm font-medium text-slate-700">
+                    {isProductMode ? L.available : L.active}
+                  </Label>
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={saving}
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  {L.cancel}
-                </Button>
-                <Button type="submit" disabled={saving} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-md">
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      {L.saving}
-                    </>
-                  ) : (
-                    L.save
-                  )}
-                </Button>
+              <DialogFooter className="pt-6 border-t border-slate-100">
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => setIsDialogOpen(false)}
+                    className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-slate-200 hover:bg-slate-50"
+                  >
+                    {L.cancel}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={saving} 
+                    className="flex-1 sm:flex-none h-12 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0 shadow-lg text-white"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        {L.saving}
+                      </>
+                    ) : (
+                      L.save
+                    )}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+        {/* Save Confirmation */}
+        <Dialog open={confirmSaveOpen} onOpenChange={(open: boolean)=> { if (!saving) setConfirmSaveOpen(open); if(!open) setPendingFormData(null) }}>
+          <DialogContent className="w-[90vw] sm:w-auto sm:max-w-[440px] rounded-2xl border-0 shadow-xl">
+            <DialogHeader>
+              <DialogTitle>{L.confirmSaveTitle}</DialogTitle>
+              <DialogDescription>{L.confirmSaveDescription}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-3 sm:gap-2">
+              <Button variant="outline" disabled={saving} onClick={()=> { setConfirmSaveOpen(false); setPendingFormData(null) }} className="h-11 px-6 rounded-xl border-slate-200">{L.cancel}</Button>
+              <Button disabled={saving} onClick={()=> { if(pendingFormData) { setConfirmSaveOpen(false); void performSave(pendingFormData) } }} className="h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {L.confirm}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
@@ -472,57 +577,60 @@ export default function MenuAdminPage() {
   )
 }
 
-interface ImageUploaderProps { name: string; required?: boolean; initialUrl?: string; saving?: boolean }
-function ImageUploader({ name, required, initialUrl, saving }: ImageUploaderProps) {
+interface ImageUploaderProps { name: string; required?: boolean; initialUrl?: string; saving?: boolean; readyLabel?: string; pendingLabel?: string }
+function ImageUploader({ name, required, initialUrl, saving, readyLabel = 'Ready', pendingLabel = 'Pending' }: ImageUploaderProps) {
   const [preview, setPreview] = useState<string | null>(initialUrl || null)
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(initialUrl || null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-  const f = e.target.files?.[0]
-  if (!f) return
-    setUploadedUrl(null) // clear so handleSave knows to upload
+    const f = e.target.files?.[0]
+    if (!f) return
+    setUploadedUrl(null)
     const reader = new FileReader()
     reader.onload = ev => setPreview(ev.target?.result as string)
     reader.readAsDataURL(f)
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <input type="hidden" name={name} value={uploadedUrl || ''} />
-      <input 
-        type="file" 
-        name={`${name}_file`} 
-        accept="image/*" 
-        onChange={handleFileChange} 
-        disabled={saving}
-        required={required && !uploadedUrl} 
-      />
-      {preview && (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 p-3 bg-gray-50">
-          <div className="flex items-center gap-4">
-            <Image 
-              src={preview} 
-              alt="preview" 
-              className="h-20 w-20 object-cover rounded-xl border-2 border-gray-200 shadow-sm" 
-              width={80} 
-              height={80} 
-            />
-            <div className="flex flex-col gap-2">
-              {uploadedUrl ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-green-600 font-medium">Ready to save</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm text-orange-600 font-medium">Will upload on save</span>
-                </div>
-              )}
+      <div className="flex flex-col gap-4">
+        <input 
+          type="file" 
+          name={`${name}_file`} 
+          accept="image/*" 
+          onChange={handleFileChange} 
+          disabled={saving}
+          required={required && !uploadedUrl}
+          className="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer cursor-pointer"
+        />
+        {preview && (
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 p-6 bg-slate-50">
+            <div className="flex items-center gap-6">
+              <Image 
+                src={preview} 
+                alt="preview" 
+                className="h-24 w-24 object-cover rounded-2xl border border-slate-200 shadow-sm bg-white" 
+                width={96} 
+                height={96} 
+              />
+              <div className="flex flex-col gap-3">
+                {uploadedUrl ? (
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-green-600 font-semibold" dir="auto">{readyLabel}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 bg-orange-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-orange-600 font-semibold" dir="auto">{pendingLabel}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

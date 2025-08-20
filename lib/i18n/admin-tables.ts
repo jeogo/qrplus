@@ -30,7 +30,14 @@ export const adminTablesTexts = {
     generatingQR: "جاري إنشاء رمز QR...",
     invalidNumber: "رقم غير صالح",
     operationFailed: "فشلت العملية",
-    viewMenu: "عرض القائمة"
+  viewMenu: "عرض القائمة",
+  refresh: "تحديث",
+  confirm: "تأكيد",
+  confirmSaveTitle: "تأكيد الحفظ",
+  confirmSaveDescription: "هل تريد حفظ التغييرات؟",
+  saving: "جاري الحفظ...",
+  adding: "جاري الإضافة...",
+  updating: "جاري التحديث..."
   },
   fr: {
     title: "Gestion des Tables",
@@ -62,7 +69,14 @@ export const adminTablesTexts = {
     generatingQR: "Génération du code QR...",
     invalidNumber: "Numéro invalide",
     operationFailed: "Opération échouée",
-    viewMenu: "Voir le menu"
+  viewMenu: "Voir le menu",
+  refresh: "Actualiser",
+  confirm: "Confirmer",
+  confirmSaveTitle: "Confirmer l'enregistrement",
+  confirmSaveDescription: "Voulez-vous enregistrer les modifications ?",
+  saving: "Enregistrement...",
+  adding: "Ajout...",
+  updating: "Mise à jour..."
   }
 }
 

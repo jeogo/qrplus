@@ -1,25 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Plus, Edit, Trash2, Download, QrCode, ExternalLink, RefreshCw, Loader2 } from "lucide-react"
+import { Plus, RefreshCw, Loader2, QrCode } from "lucide-react"
+import { toast } from 'sonner'
+import { SectionHeader } from '@/components/admin/section-header'
 import QRCode from "qrcode"
+import { TableCard } from './components/table-card'
+import { TableDialog } from './components/table-dialog'
+import { SaveConfirmDialog } from './components/save-confirm-dialog'
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminTablesTexts } from "@/lib/i18n/admin-tables"
@@ -35,10 +24,9 @@ interface Table {
 export default function TablesAdminPage() {
   const language = useAdminLanguage()
   const [tables, setTables] = useState<Table[]>([])
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTable, setEditingTable] = useState<Table | null>(null)
-  const [newTableNumber, setNewTableNumber] = useState("")
+  const [tableNumberInput, setTableNumberInput] = useState("")
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
@@ -48,7 +36,9 @@ export default function TablesAdminPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  // save confirmation
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'add' | 'edit' | null>(null)
 
   // Get localized text
   const L = getAdminTablesTexts(language)
@@ -103,9 +93,7 @@ export default function TablesAdminPage() {
   }
 
 
-  const handleAddTable = async () => {
-    if (!newTableNumber.trim() || adding) return
-    const num = Number(newTableNumber)
+  const performAddTable = async (num: number) => {
     if (!Number.isInteger(num) || num < 1) {
       console.log('Admin: Invalid table number entered')
       setErrorMessage(L.invalidNumber)
@@ -113,7 +101,7 @@ export default function TablesAdminPage() {
     }
     try {
       setAdding(true)
-      setErrorMessage(null); setSuccessMessage(null)
+      setErrorMessage(null)
       const res = await fetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,11 +117,11 @@ export default function TablesAdminPage() {
         }
         return
       }
-      setNewTableNumber('')
-      setIsAddDialogOpen(false)
+      setTableNumberInput('')
+      setIsDialogOpen(false)
       await fetchTables()
       console.log('Admin: Table added successfully')
-      setSuccessMessage(language==='ar' ? 'تم إضافة الطاولة بنجاح' : 'Table ajoutée avec succès')
+      toast.success(language==='ar' ? 'تم إضافة الطاولة بنجاح' : 'Table ajoutée avec succès')
     } catch (error: unknown) {
       console.error('Error adding table:', error)
       console.log('Admin: Error adding table', getErrMsg(error))
@@ -142,18 +130,11 @@ export default function TablesAdminPage() {
       setAdding(false)
     }
   }
-
-    const handleEditTable = async () => {
-    if (!editingTable || !newTableNumber.trim() || editing) return
-    const num = Number(newTableNumber)
-    if (!Number.isInteger(num) || num < 1) {
-      console.log('Admin: Invalid table number for edit')
-      setErrorMessage(L.invalidNumber)
-      return
-    }
+  const performEditTable = async (num: number) => {
     try {
       setEditing(true)
-      setErrorMessage(null); setSuccessMessage(null)
+      setErrorMessage(null)
+      if (!editingTable) return
       const res = await fetch(`/api/tables/${editingTable.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -170,25 +151,35 @@ export default function TablesAdminPage() {
         return
       }
       setEditingTable(null)
-      setNewTableNumber('')
-      setIsEditDialogOpen(false)
+      setTableNumberInput('')
+      setIsDialogOpen(false)
       await fetchTables()
-      console.log('Admin: Table updated successfully')
-      setSuccessMessage(language==='ar' ? 'تم تحديث الطاولة بنجاح' : 'Table mise à jour avec succès')
+      toast.success(language==='ar' ? 'تم تحديث الطاولة بنجاح' : 'Table mise à jour avec succès')
     } catch (error: unknown) {
       console.error('Error updating table:', error)
       console.log('Admin: Error updating table', getErrMsg(error))
       setErrorMessage(L.operationFailed)
-    } finally {
-      setEditing(false)
+    } finally { setEditing(false) }
+  }
+
+  const handleSave = () => {
+    if (!tableNumberInput.trim()) return
+    const num = Number(tableNumberInput)
+    if (!Number.isInteger(num) || num < 1) {
+      setErrorMessage(L.invalidNumber)
+      return
     }
+    if (adding || editing) return
+    // set pending action then open confirmation
+    setPendingAction(editingTable ? 'edit' : 'add')
+    setConfirmSaveOpen(true)
   }
 
   const handleDeleteTable = async (tableId: number) => {
     if (deletingId) return
     try {
       setDeletingId(tableId)
-      setErrorMessage(null); setSuccessMessage(null)
+  setErrorMessage(null)
       const res = await fetch(`/api/tables/${tableId}`, { method: 'DELETE' })
       const json = await res.json()
       if (!json.success) {
@@ -198,7 +189,7 @@ export default function TablesAdminPage() {
       }
       await fetchTables()
       console.log('Admin: Table deleted successfully')
-      setSuccessMessage(language==='ar' ? 'تم حذف الطاولة بنجاح' : 'Table supprimée avec succès')
+  toast.success(language==='ar' ? 'تم حذف الطاولة بنجاح' : 'Table supprimée avec succès')
     } catch (error: unknown) {
       console.error('Error deleting table:', error)
       console.log('Admin: Error deleting table', getErrMsg(error))
@@ -230,8 +221,8 @@ export default function TablesAdminPage() {
   const openEditDialog = (table: Table) => {
     if (adding || editing) return
     setEditingTable(table)
-    setNewTableNumber(String(table.table_number))
-    setIsEditDialogOpen(true)
+    setTableNumberInput(String(table.table_number))
+    setIsDialogOpen(true)
   }
 
   if (loading) {
@@ -256,100 +247,39 @@ export default function TablesAdminPage() {
         <AdminHeader title={L.title} />
         
         <div className="p-4 pb-20 space-y-6">
-          {(errorMessage || successMessage) && (
-            <div className="space-y-2">
-              {errorMessage && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {errorMessage}
-                </div>
-              )}
-              {successMessage && (
-                <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                  {successMessage}
-                </div>
-              )}
+          {errorMessage && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
             </div>
           )}
-          {/* Header Section with Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200/50 p-6">
-            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900 mb-1">{L.manageTables}</h1>
-                <p className="text-sm text-slate-500">{L.description}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => {
-                    setRefreshing(true)
-                    fetchTables().finally(() => setRefreshing(false))
-                  }}
-                  disabled={refreshing}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 border-slate-200 hover:bg-slate-50"
-                >
-                  {refreshing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  {language === 'ar' ? 'تحديث' : 'Actualiser'}
-                </Button>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-md flex items-center gap-2"
-                      disabled={adding || editing}
-                    >
-                      <Plus className="w-4 h-4" />
-                      {L.addTable}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>{L.addTable}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <div>
-                        <Label htmlFor="tableName">{L.tableName}</Label>
-                        <Input
-                          id="tableName"
-                          type="number"
-                          value={newTableNumber}
-                          onChange={(e) => setNewTableNumber(e.target.value)}
-                          placeholder={L.tableNumber}
-                          className="mt-2 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end pt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsAddDialogOpen(false)}
-                          disabled={adding}
-                          className="border-slate-200 hover:bg-slate-50"
-                        >
-                          {L.cancel}
-                        </Button>
-                        <Button
-                          onClick={handleAddTable}
-                          disabled={adding}
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-md"
-                        >
-                          {adding ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              {language === 'ar' ? 'جاري الإضافة...' : 'Ajout...'}
-                            </>
-                          ) : (
-                            L.save
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <SectionHeader
+              title={L.manageTables}
+              subtitle={L.description}
+              actions={
+                <div className="flex gap-3 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={refreshing}
+                    onClick={()=>{ if(refreshing) return; setRefreshing(true); fetchTables().finally(()=>{ setRefreshing(false); toast.success(language==='ar'? 'تم التحديث':'Actualisé') }) }}
+                    className="border-slate-200 hover:bg-slate-50"
+                  >
+                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <span className="ml-2">{L.refresh || (language==='ar'? 'تحديث':'Actualiser')}</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={adding || editing}
+                    onClick={()=>{ setEditingTable(null); setTableNumberInput(''); setIsDialogOpen(true) }}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="ml-2">{L.addTable}</span>
+                  </Button>
+                </div>
+              }
+            />
           </div>
 
           {/* Tables Grid */}
@@ -366,173 +296,50 @@ export default function TablesAdminPage() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {tables.map((table, index) => (
-                <Card
+                <TableCard
                   key={table.id}
-                  className="group hover:shadow-lg border-slate-200/60 transition-all duration-200 bg-white/80 backdrop-blur-sm hover:bg-white hover:scale-[1.02] animate-fade-in-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2 text-slate-900">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        {L.tableNumber} {table.table_number}
-                      </CardTitle>
-                      <div className="p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                        <QrCode className="w-4 h-4 text-blue-600" />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4">
-                    {/* QR Code Display */}
-                    <div className="flex justify-center">
-                      {qrCodes[String(table.id)] ? (
-                        <div className="relative group">
-                          <Image
-                            src={qrCodes[String(table.id)] || "/placeholder.svg"}
-                            alt={`${L.qrCodeFor} ${table.table_number}`}
-                            className="w-32 h-32 border-2 border-slate-200 rounded-xl shadow-sm bg-white p-2 group-hover:shadow-md transition-shadow"
-                            width={128}
-                            height={128}
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-xl transition-all" />
-                        </div>
-                      ) : (
-                        <div className="w-32 h-32 bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 rounded-xl flex items-center justify-center">
-                          <div className="text-center">
-                            <Loader2 className="w-6 h-6 text-slate-400 animate-spin mx-auto mb-2" />
-                            <p className="text-xs text-slate-500">{L.generatingQR}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(table)}
-                        disabled={adding || editing}
-                        className="border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-2"
-                      >
-                        <Edit className="w-3 h-3" />
-                        {L.edit}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(table.qr_code, '_blank')}
-                        className="border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-2"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {L.viewMenu}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadQRCode(table)}
-                        disabled={!qrCodes[String(table.id)]}
-                        className="border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-2"
-                      >
-                        <Download className="w-3 h-3" />
-                        {L.download}
-                      </Button>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={deletingId === table.id}
-                            className="border-red-200 hover:bg-red-50 text-red-600 hover:text-red-700 flex items-center gap-2"
-                          >
-                            {deletingId === table.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                            {deletingId === table.id ? (
-                              language === 'ar' ? 'جاري الحذف...' : 'Suppression...'
-                            ) : (
-                              L.delete
-                            )}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{L.deleteConfirm}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {L.deleteDescription}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="border-slate-200 hover:bg-slate-50">
-                              {L.cancel}
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteTable(table.id)}
-                              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-0 shadow-md"
-                            >
-                              {L.delete}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
+                  table={{ id: table.id, table_number: table.table_number, qr_code: table.qr_code }}
+                  index={index}
+                  qrCodeData={qrCodes[String(table.id)]}
+                  deleting={deletingId === table.id}
+                  disabled={adding || editing}
+                  texts={{
+                    tableNumber: L.tableNumber,
+                    generatingQR: L.generatingQR,
+                    edit: L.edit,
+                    viewMenu: L.viewMenu,
+                    download: L.download,
+                    delete: L.delete,
+                    deleteConfirm: L.deleteConfirm,
+                    deleteDescription: L.deleteDescription,
+                    cancel: L.cancel
+                  }}
+                  onEdit={(t)=> openEditDialog(t as Table)}
+                  onOpenMenu={(url)=> window.open(url, '_blank')}
+                  onDownload={(t)=> downloadQRCode(t as Table)}
+                  onDelete={(id)=> handleDeleteTable(id)}
+                />
               ))}
             </div>
           )}
 
-          {/* Edit Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>{L.editTable}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div>
-                  <Label htmlFor="editTableName">{L.tableName}</Label>
-                  <Input
-                    id="editTableName"
-                    type="number"
-                    value={newTableNumber}
-                    onChange={(e) => setNewTableNumber(e.target.value)}
-                    placeholder={L.tableNumber}
-                    className="mt-2 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                    disabled={editing}
-                    className="border-slate-200 hover:bg-slate-50"
-                  >
-                    {L.cancel}
-                  </Button>
-                  <Button
-                    onClick={handleEditTable}
-                    disabled={editing}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-md"
-                  >
-                    {editing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        {language === 'ar' ? 'جاري التحديث...' : 'Mise à jour...'}
-                      </>
-                    ) : (
-                      L.save
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <TableDialog
+            open={isDialogOpen}
+            onOpenChange={(o)=> { if(adding||editing) return; setIsDialogOpen(o); if(!o){ setEditingTable(null); setTableNumberInput('') } }}
+            onConfirm={(num, mode)=> { setPendingAction(mode); setTableNumberInput(String(num)); setConfirmSaveOpen(true) }}
+            adding={adding}
+            editing={editing}
+            initialNumber={editingTable?.table_number ?? null}
+            texts={{ addTable: L.addTable, editTable: L.editTable, tableNumber: L.tableNumber, tableName: L.tableName, save: L.save, cancel: L.cancel, adding: L.adding || '', updating: L.updating || '' }}
+            language={language}
+          />
+          <SaveConfirmDialog
+            open={confirmSaveOpen}
+            loading={adding||editing}
+            onCancel={()=> { if(adding||editing) return; setConfirmSaveOpen(false); setPendingAction(null) }}
+            onConfirm={()=> { if(!pendingAction) return; const num = Number(tableNumberInput); setConfirmSaveOpen(false); if(pendingAction==='add') void performAddTable(num); else void performEditTable(num); setPendingAction(null) }}
+            texts={{ confirmSaveTitle: L.confirmSaveTitle, confirmSaveDescription: L.confirmSaveDescription, cancel: L.cancel, confirm: L.confirm }}
+          />
         </div>
       </div>
     </AdminLayout>

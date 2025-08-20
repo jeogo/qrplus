@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useOrdersStream } from "@/hooks/use-orders-stream"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, RefreshCw, Trash2 } from "lucide-react"
+import { Loader2, RefreshCw, LayoutGrid, List as ListIcon, Rows3 } from "lucide-react"
+import { OrdersSkeletonGrid } from './components/order-skeleton'
+import { AdminOrderCard } from './components/order-card'
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminActionOverlay } from "@/components/admin-action-overlay"
 import { useAdminActionOverlay } from "@/hooks/use-admin-action"
@@ -14,12 +14,10 @@ import { useSystemActive } from "@/hooks/use-system-active"
 import { handleSystemInactive } from "@/lib/system-active"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminOrdersTexts } from "@/lib/i18n/admin-orders"
+import { toast } from 'sonner'
 
 interface Order { id:number; table_id:number; status:string; total:number; created_at:string; updated_at:string; note?:string; daily_number?:number }
 interface OrderItem { id:number; product_id:number; product_name?:string; quantity:number; price:number }
-
-const STATUS_FLOW: Record<string,string[]> = { pending:['approved'], approved:['ready'], ready:['served'], served:[] }
-const STATUS_COLOR: Record<string,string> = { pending:"bg-yellow-100 text-yellow-800", approved:"bg-blue-100 text-blue-800", ready:"bg-green-100 text-green-800", served:"bg-gray-200 text-gray-800" }
 
 export default function AdminOrdersPage() {
   const router = useRouter()
@@ -28,6 +26,7 @@ export default function AdminOrdersPage() {
   const [orders,setOrders] = useState<Order[]>([])
   const [loading,setLoading] = useState(false)
   const [statusFilter,setStatusFilter] = useState<string>("")
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'compact'>(()=> (typeof window !== 'undefined' && (localStorage.getItem('orders:viewMode') as any)) || 'cards')
   const [actionLoading,setActionLoading] = useState(false)
   const [error,setError] = useState<string|null>(null)
   const action = useAdminActionOverlay(language)
@@ -38,7 +37,7 @@ export default function AdminOrdersPage() {
   })
 
   // Initial + manual fetch (fallback before SSE populates or on refresh / filter change)
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (manual = false) => {
     setLoading(true)
     try {
       const qs = new URLSearchParams()
@@ -56,9 +55,13 @@ export default function AdminOrdersPage() {
           .sort((a,b)=> new Date(b.created_at||0).getTime() - new Date(a.created_at||0).getTime())
       })
       setError(null)
+      if (manual) {
+        toast.success(language==='ar'? 'تم التحديث' : 'Actualisé', { description: language==='ar'? 'تم جلب أحدث الطلبات' : 'Commandes à jour' })
+      }
     } catch (e) {
       console.error('[ORDERS][FETCH] error', e)
       setError(language==='ar' ? 'فشل تحميل الطلبات' : 'Échec du chargement des commandes')
+      toast.error(language==='ar'? 'فشل التحميل' : 'Échec du chargement')
     } finally {
       setLoading(false)
     }
@@ -177,10 +180,12 @@ export default function AdminOrdersPage() {
         .filter(o => o && !(o.id === id && newStatus === 'served'))
       )
       action.success(language==='ar'? 'تم التحديث' : 'Mis à jour', language==='ar'? 'تم التحديث' : 'Mis à jour')
+      toast.success(language==='ar'? 'تم تحديث حالة الطلب' : 'Statut mis à jour')
     } catch (err) {
       console.error('Transition error:', err)
       setError(language==='ar' ? 'فشل تحديث حالة الطلب' : 'Échec de mise à jour du statut')
       action.error(language==='ar'? 'فشل العملية' : "Échec", language==='ar'? 'فشل العملية' : "Échec")
+      toast.error(language==='ar'? 'فشل تحديث الطلب' : 'Échec mise à jour')
     } finally { 
       setActionLoading(false) 
     }
@@ -193,26 +198,35 @@ export default function AdminOrdersPage() {
       if (!systemActive) { handleSystemInactive(language); return }
       setActionLoading(true)
       action.start('أرشفة الطلب...', 'Archivage...')
-      console.log(`[ADMIN] Deleting order ${id}`)
       const res = await fetch(`/api/orders/${id}`, { method:"DELETE" })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
-      
-      console.log(`[ADMIN] Order ${id} deleted successfully`)
       setOrders(prev => prev.filter(o => o && o.id !== id))
-      
-      console.log('Admin: Order deleted successfully', id)
       action.success(language==='ar'? 'تمت الأرشفة' : 'Archivé', language==='ar'? 'تمت الأرشفة' : 'Archivé')
+      toast.success(language==='ar'? 'تمت الأرشفة' : 'Commande archivée')
       
     } catch (err) {
       console.error('Delete error:', err)
       setError(language==='ar' ? 'فشل حذف الطلب' : 'Échec de suppression de la commande')
-      console.log('Admin: Order delete failed', id)
       action.error(language==='ar'? 'فشل الأرشفة' : "Échec de l'archivage", language==='ar'? 'فشل الأرشفة' : "Échec de l'archivage")
+      toast.error(language==='ar'? 'فشل الأرشفة' : 'Échec archivage')
     } finally { 
       setActionLoading(false) 
     }
   }
+
+  // Derived counts per status for filter pills
+  const statusCounts = useMemo(()=>{
+    const counts: Record<string, number> = { all: 0, pending:0, approved:0, ready:0, served:0 }
+    orders.forEach(o=> { counts.all++; if(counts[o.status] != null) counts[o.status]++ })
+    return counts
+  }, [orders])
+
+  useEffect(()=> { try { localStorage.setItem('orders:viewMode', viewMode) } catch {} }, [viewMode])
+
+  const filteredOrders = statusFilter ? orders.filter(o=> o.status === statusFilter) : orders
+
+  const isListLike = viewMode !== 'cards'
 
   return (
     <AdminLayout>
@@ -226,17 +240,24 @@ export default function AdminOrdersPage() {
           <AdminActionOverlay state={action.state} language={action.language} onClear={action.clear} />
           
           {/* Header Section with Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200/50 p-6">
-            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900 mb-1">{L.manageOrders}</h1>
+          <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-5 space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="space-y-1">
+                <h1 className="text-xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+                  {L.manageOrders}
+                </h1>
                 <p className="text-sm text-slate-500">{L.filterByStatus}</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-md overflow-hidden border border-slate-200 bg-white">
+                  <Button size="icon" aria-label="Cards" variant={viewMode==='cards'? 'default':'ghost'} className="h-8 w-8" onClick={()=> setViewMode('cards')}><LayoutGrid className="h-4 w-4" /></Button>
+                  <Button size="icon" aria-label="List" variant={viewMode==='list'? 'default':'ghost'} className="h-8 w-8" onClick={()=> setViewMode('list')}><ListIcon className="h-4 w-4" /></Button>
+                  <Button size="icon" aria-label="Compact" variant={viewMode==='compact'? 'default':'ghost'} className="h-8 w-8" onClick={()=> setViewMode('compact')}><Rows3 className="h-4 w-4" /></Button>
+                </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={fetchOrders} 
+                  onClick={()=>fetchOrders(true)} 
                   disabled={loading}
                   className="flex items-center gap-2 border-slate-200 hover:bg-slate-50"
                 >
@@ -245,22 +266,32 @@ export default function AdminOrdersPage() {
                 </Button>
               </div>
             </div>
-            
-            {/* Status Filter Pills */}
             <div className="flex flex-wrap gap-2">
-              {["","pending","approved","ready","served"].map(s => (
-                <Button 
-                  key={s||"all"} 
-                  size="sm" 
-                  variant={s===statusFilter? "default":"outline"} 
-                  onClick={()=>setStatusFilter(s)}
-                  className={s===statusFilter 
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-md" 
-                    : "border-slate-200 hover:bg-slate-50 text-slate-700"
-                  }
-                >
-                  {s? L.status[s as keyof typeof L.status] : L.all}
-                </Button>
+              {['', 'pending','approved','ready','served'].map(s=> {
+                const active = s===statusFilter
+                const label = s? L.status[s as keyof typeof L.status] : L.all
+                const count = s? statusCounts[s] : statusCounts.all
+                return (
+                  <button key={s||'all'} onClick={()=> setStatusFilter(s)} className={"group relative flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition " + (active? 'bg-blue-600 text-white border-blue-600 shadow-sm':'bg-white text-slate-600 hover:text-slate-800 border-slate-200 hover:bg-slate-50') }>
+                    <span>{label}</span>
+                    <span className={"text-xs rounded-full px-2 py-0.5 font-semibold transition " + (active? 'bg-white/20':'bg-slate-100 text-slate-600 group-hover:bg-slate-200')}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {[
+                { key:'all', label: L.all, count: statusCounts.all, color:'bg-slate-800 text-white' },
+                { key:'pending', label: L.status.pending, count: statusCounts.pending, color:'bg-amber-500/90 text-white' },
+                { key:'approved', label: L.status.approved, count: statusCounts.approved, color:'bg-blue-600/90 text-white' },
+                { key:'ready', label: L.status.ready, count: statusCounts.ready, color:'bg-green-600/90 text-white' },
+                { key:'served', label: L.status.served, count: statusCounts.served, color:'bg-slate-500/90 text-white' }
+              ].map(s => (
+                <div key={s.key} className={"rounded-xl px-3 py-2 flex flex-col gap-1 shadow-sm border border-white/20 backdrop-blur-sm " + s.color}>
+                  <span className="text-xs font-medium opacity-90 tracking-wide">{s.label}</span>
+                  <span className="text-lg font-semibold leading-none">{s.count}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -276,10 +307,13 @@ export default function AdminOrdersPage() {
           )}
           
           {/* Orders Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
-            {orders.filter(o => o && typeof o.id === 'number').map(o => (
-              <AdminOrderCard 
-                key={o.id} 
+          {/* Orders List / Cards */}
+          <div className={isListLike? 'space-y-3 animate-in fade-in duration-300':'grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 animate-in fade-in duration-300'}>
+            {loading && filteredOrders.length===0 ? (
+              <OrdersSkeletonGrid mode={viewMode} />
+            ) : filteredOrders.map(o => (
+              <AdminOrderCard
+                key={o.id}
                 order={o}
                 items={readCache(o.id)?.items || []}
                 language={language}
@@ -288,11 +322,12 @@ export default function AdminOrdersPage() {
                 onLoadDetails={()=>prefetchDetail(o.id)}
                 actionLoading={actionLoading}
                 L={L}
+                mode={viewMode}
               />
             ))}
             
             {/* Empty State */}
-            {!loading && orders.length===0 && (
+            {!loading && filteredOrders.length===0 && (
               <div className="col-span-full text-center py-12">
                 <div className="text-slate-400 mb-3">
                   <div className="w-16 h-16 bg-slate-100 rounded-full mx-auto flex items-center justify-center mb-3">
@@ -307,7 +342,7 @@ export default function AdminOrdersPage() {
             )}
             
             {/* Loading State */}
-            {loading && orders.length===0 && (
+            {loading && filteredOrders.length===0 && (
               <div className="col-span-full flex items-center justify-center gap-3 text-slate-500 text-sm py-12">
                 <Loader2 className="h-5 w-5 animate-spin"/> 
                 {L.loading}
@@ -321,118 +356,4 @@ export default function AdminOrdersPage() {
 }
 
 // Admin Order Card Component
-interface AdminOrderCardProps {
-  order: Order
-  items: OrderItem[]
-  language: "ar" | "fr"
-  onTransition: (id: number, status: string) => Promise<void>
-  onRemove: (id: number) => Promise<void>
-  onLoadDetails: () => void
-  actionLoading: boolean
-  L: ReturnType<typeof getAdminOrdersTexts>
-}
-
-function AdminOrderCard({ order, items, language, onTransition, onRemove, onLoadDetails, actionLoading, L }: AdminOrderCardProps) {
-  const [loadedDetails, setLoadedDetails] = useState(false)
-  
-  useEffect(() => {
-    if (!loadedDetails && !items.length) {
-      onLoadDetails()
-      setLoadedDetails(true)
-    }
-  }, [loadedDetails, items.length, onLoadDetails])
-
-  const getNextStatuses = (status: string) => STATUS_FLOW[status] || []
-
-  return (
-    <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
-      <CardContent className="p-6">
-        {/* Order Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-slate-900 text-lg">#{order.daily_number ?? order.id}</span>
-            <Badge variant="secondary" className="text-sm font-medium">
-              {L.table} #{order.table_id}
-            </Badge>
-            <div>
-              <p className="text-sm text-slate-500">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
-            </div>
-          </div>
-          <Badge className={`${STATUS_COLOR[order.status]} border shadow-sm font-medium`}>
-            {L.status[order.status as keyof typeof L.status] || order.status}
-          </Badge>
-        </div>
-
-        {/* Order Items - Always visible */}
-        <div className="mb-4">
-          <h4 className="font-semibold text-slate-700 mb-3">{language === 'ar' ? 'عناصر الطلب' : 'Articles de la commande'}</h4>
-          <div className="space-y-2">
-            {(!items || !items.length) && (
-              <div className="text-xs text-slate-400 italic">{language === 'ar' ? 'جاري تحميل التفاصيل...' : 'Chargement des détails...'}</div>
-            )}
-            {items?.map((item) => (
-              <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-800 font-medium">{item.product_name || `${language === 'ar' ? 'منتج #' : 'Produit #'}${item.product_id}`}</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-slate-200 text-slate-800">
-                    x{item.quantity}
-                  </Badge>
-                  <span className="text-sm font-medium">{item.price * item.quantity} DZD</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Order Note */}
-          {order.note && (
-            <div className="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-sm font-medium text-amber-800 mb-1">
-                {L.customerNote}
-              </p>
-              <p className="text-amber-700 text-sm">{order.note}</p>
-            </div>
-          )}
-
-          {/* Total */}
-          <div className="mt-4 flex justify-between items-center">
-            <span className="text-slate-600 font-medium">
-              {L.total}:
-            </span>
-            <span className="text-xl font-bold text-slate-800">
-              {order.total} DZD
-            </span>
-          </div>
-        </div>
-
-        {/* Quick Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
-          {/* Status transition buttons */}
-          {getNextStatuses(order.status).map(ns => (
-            <Button 
-              key={ns} 
-              size="sm"
-              disabled={actionLoading}
-              onClick={() => onTransition(order.id, ns)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : L.status[ns as keyof typeof L.status]}
-            </Button>
-          ))}
-          
-          {/* Delete Button for Pending Orders */}
-          {order.status === "pending" && (
-            <Button 
-              size="sm" 
-              variant="outline"
-              disabled={actionLoading} 
-              onClick={() => onRemove(order.id)}
-              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
-            >
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Trash2 className="h-4 w-4 mr-1"/>{L.delete}</>}
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+// removed inline AdminOrderCard (moved to components/order-card.tsx)
