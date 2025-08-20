@@ -69,12 +69,39 @@ export function TableCard({ table, index, qrCodeData, texts, onEdit, onOpenMenu,
                 </div>
               </button>
             </div>
-            <div className="relative" ref={menuRef}>
+            <div className="flex items-center gap-2 relative" ref={menuRef}>
+              {/* Direct delete button (shortcut) */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={deleting || disabled}
+                    className="h-9 w-9 border-slate-200 hover:bg-red-50 text-red-600 disabled:opacity-50"
+                    aria-label={texts.delete}
+                  >
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{texts.deleteConfirm}</AlertDialogTitle>
+                    <AlertDialogDescription>{texts.deleteDescription}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="border-slate-200 hover:bg-slate-50">{texts.cancel}</AlertDialogCancel>
+                    <AlertDialogAction onClick={()=> { onDelete(table.id); setMenuOpen(false) }} className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md">
+                      {texts.delete}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 border-slate-200 hover:bg-slate-50"
                 onClick={()=> setMenuOpen(o=> !o)}
+                aria-label="More"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -92,7 +119,7 @@ export function TableCard({ table, index, qrCodeData, texts, onEdit, onOpenMenu,
                   <div className="my-1 h-px bg-slate-100" />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <button disabled={deleting} className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-red-50 text-left text-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                      <button disabled={deleting || disabled} className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-red-50 text-left text-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
                         {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         {texts.delete}
                       </button>
