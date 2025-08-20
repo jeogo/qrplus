@@ -38,43 +38,22 @@ interface AccountData {
   updated_at?: string
 }
 
-// GET /api/admin/settings - Get restaurant settings
+// GET /api/admin/settings - Fetch restaurant & system settings
 export async function GET() {
   try {
     const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
+    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    if (!Number.isFinite(accountId)) {
-      return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
-    }
+    if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
 
     const db = admin.firestore()
-
-    // Get restaurant info from accounts collection
     const accountSnap = await db.collection('accounts').doc(String(accountId)).get()
-    if (!accountSnap.exists) {
-      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 })
-    }
+    if (!accountSnap.exists) return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 })
     const accountData = accountSnap.data()!
 
-    // Get system settings
-    const settingsSnap = await db.collection('system_settings')
-      .where('account_id', '==', accountId)
-      .limit(1)
-      .get()
-
-    let settingsData: SystemSettingsData = {
-      language: 'ar',
-      currency: 'DZD',
-      logo_url: '',
-    }
-
-    if (!settingsSnap.empty) {
-      settingsData = settingsSnap.docs[0].data()
-    }
+    const settingsSnap = await db.collection('system_settings').where('account_id', '==', accountId).limit(1).get()
+    const settingsData: SystemSettingsData = !settingsSnap.empty ? settingsSnap.docs[0].data() : { language: 'ar', currency: 'DZD', logo_url: '' }
 
     const settings: SettingsData = {
       id: settingsData.id || accountId,
@@ -97,92 +76,52 @@ export async function GET() {
   }
 }
 
-// PATCH /api/admin/settings - Update restaurant settings
+// PATCH /api/admin/settings - Update restaurant & system settings
 export async function PATCH(req: NextRequest) {
   try {
     const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
+    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    if (!Number.isFinite(accountId)) {
-      return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
-    }
+    if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
 
     const body = await req.json()
     const now = new Date().toISOString()
     const db = admin.firestore()
 
-    // Prepare updates for different collections
     const accountUpdates: Partial<AccountData> & { updated_at: string } = { updated_at: now }
     const systemSettingsUpdates: Partial<SystemSettingsData> & { updated_at: string } = { updated_at: now }
 
-    // Handle restaurant name (goes to accounts)
+    // Accounts updates
     if (body.restaurant_name !== undefined) {
       const name = String(body.restaurant_name).trim()
-      if (!name) {
-        return NextResponse.json({ success: false, error: 'Restaurant name required' }, { status: 400 })
-      }
+      if (!name) return NextResponse.json({ success: false, error: 'Restaurant name required' }, { status: 400 })
       accountUpdates.name = name
     }
+    if (body.system_active !== undefined) accountUpdates.active = Boolean(body.system_active)
+    if (body.address !== undefined) accountUpdates.address = body.address ? String(body.address).trim() : ''
+    if (body.phone !== undefined) accountUpdates.phone = body.phone ? String(body.phone).trim() : ''
+    if (body.email !== undefined) accountUpdates.email = body.email ? String(body.email).trim() : ''
 
-    // Handle system active status (goes to accounts)
-    if (body.system_active !== undefined) {
-      accountUpdates.active = Boolean(body.system_active)
-    }
-
-    // Handle contact info (goes to accounts)
-    if (body.address !== undefined) {
-      accountUpdates.address = body.address ? String(body.address).trim() : ''
-    }
-    if (body.phone !== undefined) {
-      accountUpdates.phone = body.phone ? String(body.phone).trim() : ''
-    }
-    if (body.email !== undefined) {
-      accountUpdates.email = body.email ? String(body.email).trim() : ''
-    }
-
-    // Handle system settings (goes to system_settings)
+    // System settings updates
     if (body.language !== undefined) {
-      if (!['ar', 'fr'].includes(body.language)) {
-        return NextResponse.json({ success: false, error: 'Invalid language' }, { status: 400 })
-      }
+      if (!['ar', 'fr'].includes(body.language)) return NextResponse.json({ success: false, error: 'Invalid language' }, { status: 400 })
       systemSettingsUpdates.language = body.language
     }
-
     if (body.currency !== undefined) {
-      if (!['USD', 'EUR', 'MAD', 'TND', 'DZD'].includes(body.currency)) {
-        return NextResponse.json({ success: false, error: 'Invalid currency' }, { status: 400 })
-      }
+      if (!['USD', 'EUR', 'MAD', 'TND', 'DZD'].includes(body.currency)) return NextResponse.json({ success: false, error: 'Invalid currency' }, { status: 400 })
       systemSettingsUpdates.currency = body.currency
     }
+    if (body.logo_url !== undefined) systemSettingsUpdates.logo_url = body.logo_url ? String(body.logo_url).trim() : ''
 
-  // (tax removed)
+    // Update Firestore collections
+    if (Object.keys(accountUpdates).length > 1) await db.collection('accounts').doc(String(accountId)).update(accountUpdates)
 
-    if (body.logo_url !== undefined) {
-      systemSettingsUpdates.logo_url = body.logo_url ? String(body.logo_url).trim() : ''
-    }
-
-    // Update accounts if needed
-    if (Object.keys(accountUpdates).length > 1) { // More than just updated_at
-      await db.collection('accounts').doc(String(accountId)).update(accountUpdates)
-    }
-
-    // Update system settings if needed
-    if (Object.keys(systemSettingsUpdates).length > 1) { // More than just updated_at
-      const settingsSnap = await db.collection('system_settings')
-        .where('account_id', '==', accountId)
-        .limit(1)
-        .get()
-
+    if (Object.keys(systemSettingsUpdates).length > 1) {
+      const settingsSnap = await db.collection('system_settings').where('account_id', '==', accountId).limit(1).get()
       if (!settingsSnap.empty) {
-        // Update existing
-        await db.collection('system_settings')
-          .doc(settingsSnap.docs[0].id)
-          .update(systemSettingsUpdates)
+        await db.collection('system_settings').doc(settingsSnap.docs[0].id).update(systemSettingsUpdates)
       } else {
-        // Create new system settings
         const { nextSequence } = await import('@/lib/firebase/sequences')
         const settingsId = await nextSequence('system_settings')
         await db.collection('system_settings').doc(String(settingsId)).set({
@@ -201,20 +140,8 @@ export async function PATCH(req: NextRequest) {
     const updatedAccountSnap = await db.collection('accounts').doc(String(accountId)).get()
     const updatedAccountData = updatedAccountSnap.data()!
 
-    const updatedSettingsSnap = await db.collection('system_settings')
-      .where('account_id', '==', accountId)
-      .limit(1)
-      .get()
-
-    let updatedSettingsData: SystemSettingsData = {
-      language: 'ar',
-      currency: 'DZD',
-      logo_url: '',
-    }
-
-    if (!updatedSettingsSnap.empty) {
-      updatedSettingsData = updatedSettingsSnap.docs[0].data()
-    }
+    const updatedSettingsSnap = await db.collection('system_settings').where('account_id', '==', accountId).limit(1).get()
+    const updatedSettingsData: SystemSettingsData = !updatedSettingsSnap.empty ? updatedSettingsSnap.docs[0].data() : { language: 'ar', currency: 'DZD', logo_url: '' }
 
     const settings: SettingsData = {
       id: updatedSettingsData.id || accountId,
@@ -237,14 +164,10 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-interface AppError {
-  status?: number
-}
-
+// Error handler
+interface AppError { status?: number }
 function handleError(err: unknown, op: string) {
-  if (process.env.NODE_ENV !== 'production') {
-    console.error(`[API][ADMIN][SETTINGS][${op}]`, err)
-  }
+  if (process.env.NODE_ENV !== 'production') console.error(`[API][ADMIN][SETTINGS][${op}]`, err)
   const status = (err as AppError | undefined)?.status ?? 500
   const message = status === 401 ? 'Unauthenticated' : 'Server error'
   return NextResponse.json({ success: false, error: message }, { status })

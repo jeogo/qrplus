@@ -3,92 +3,112 @@ import admin from '@/lib/firebase/admin'
 import { createToken } from '@/lib/auth/jwt'
 import bcrypt from 'bcryptjs'
 
-// Firebase REST sign-in no longer used (custom bcrypt auth)
-
 export async function POST(req: NextRequest) {
   try {
-    const { email: usernameOrEmail, password } = await req.json()
+    const body = await req.json()
+    const { email: usernameOrEmail, password } = body
     if (!usernameOrEmail || !password) {
       return NextResponse.json({ success: false, error: 'Missing credentials' }, { status: 400 })
     }
 
-    const credentialInput = String(usernameOrEmail)
+    const credentialInput = String(usernameOrEmail).trim()
 
-    // 1. Attempt normal (owner/admin) user login
+    const db = admin.firestore()
+
+    // 1️⃣ Email login for admin/owner
     if (credentialInput.includes('@')) {
-      // Lookup by email directly
-      const userQuery = await admin.firestore().collection('users').where('email', '==', credentialInput).limit(1).get()
-      if (userQuery.empty) {
-        return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
-      }
-      const userDoc = userQuery.docs[0]
+      const userSnap = await db.collection('users')
+        .where('email', '==', credentialInput)
+        .limit(1)
+        .get()
+
+      if (userSnap.empty) return invalidCredentials()
+      const userDoc = userSnap.docs[0]
       const data = userDoc.data() || {}
-      const storedHash = data.password
-      if (!storedHash || typeof storedHash !== 'string') return NextResponse.json({ success: false, error: 'Password not set' }, { status: 500 })
-      const ok = await bcrypt.compare(password, storedHash)
-      if (!ok) return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
-      const account_id: number | undefined = data.account_id
-      if (typeof account_id !== 'number') return NextResponse.json({ success: false, error: 'Account link missing' }, { status: 500 })
-  const token = createToken({ sub: userDoc.id, email: credentialInput, accountId: String(account_id), accountNumericId: account_id, role: data.role || 'admin', username: data.username })
-      const res = NextResponse.json({ success: true, user: { id: data.id, firebase_uid: userDoc.id, email: credentialInput, account_id, role: data.role || 'admin', username: data.username } })
-      res.cookies.set('auth_token', token, cookieOpts())
-      return res
+      if (!data.password) return serverError('Password not set')
+      if (!(await bcrypt.compare(password, data.password))) return invalidCredentials()
+      if (typeof data.account_id !== 'number') return serverError('Account link missing')
+
+      return sendToken(userDoc.id, data.account_id, data.role || 'admin', data.username, credentialInput)
     }
 
-    // 2. Username path: first try primary users collection by username
-    const usersCol = admin.firestore().collection('users')
-    let userQuerySnap = await usersCol.where('username_lower', '==', credentialInput.toLowerCase()).limit(1).get()
-    if (userQuerySnap.empty) {
-      userQuerySnap = await usersCol.where('username', '==', credentialInput).limit(1).get()
-    }
-    if (!userQuerySnap.empty) {
-      const doc = userQuerySnap.docs[0]
-      const data = doc.data() || {}
-      const email = data.email
-      const storedHash = data.password
-      if (!email || typeof email !== 'string') return NextResponse.json({ success: false, error: 'Account email missing' }, { status: 500 })
-      if (!storedHash || typeof storedHash !== 'string') return NextResponse.json({ success: false, error: 'Password not set' }, { status: 500 })
-      const ok = await bcrypt.compare(password, storedHash)
-      if (!ok) return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
-      const account_id: number | undefined = data.account_id
-      if (typeof account_id !== 'number') return NextResponse.json({ success: false, error: 'Account link missing' }, { status: 500 })
-      const role: string = data.role || 'admin'
-  const token = createToken({ sub: doc.id, email, accountId: String(account_id), accountNumericId: account_id, role, username: data.username })
-      const res = NextResponse.json({ success: true, user: { id: data.id, firebase_uid: doc.id, email, account_id, role, username: data.username } })
-      res.cookies.set('auth_token', token, cookieOpts())
-      return res
-    }
-
-    // 3. Fallback: staff user (waiter/kitchen) login from staff_users collection
-    const staffSnap = await admin.firestore().collection('staff_users')
+    // 2️⃣ Username login for admin/owner
+    let userSnap = await db.collection('users')
       .where('username_lower', '==', credentialInput.toLowerCase())
       .limit(1)
       .get()
-    if (staffSnap.empty) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
+    if (userSnap.empty) {
+      userSnap = await db.collection('users')
+        .where('username', '==', credentialInput)
+        .limit(1)
+        .get()
     }
+    if (!userSnap.empty) {
+      const userDoc = userSnap.docs[0]
+      const data = userDoc.data() || {}
+      if (!data.password) return serverError('Password not set')
+      if (!(await bcrypt.compare(password, data.password))) return invalidCredentials()
+      if (typeof data.account_id !== 'number') return serverError('Account link missing')
+      const role = data.role || 'admin'
+      return sendToken(userDoc.id, data.account_id, role, data.username, data.email)
+    }
+
+    // 3️⃣ Staff login (waiter/kitchen)
+    const staffSnap = await db.collection('staff_users')
+      .where('username_lower', '==', credentialInput.toLowerCase())
+      .limit(1)
+      .get()
+    if (staffSnap.empty) return invalidCredentials()
+
     const staffDoc = staffSnap.docs[0]
     const staffData = staffDoc.data() || {}
-    if (staffData.active === false) {
-      return NextResponse.json({ success: false, error: 'Account disabled' }, { status: 403 })
-    }
-    const staffHash = staffData.password
-    if (!staffHash || typeof staffHash !== 'string') return NextResponse.json({ success: false, error: 'Password not set' }, { status: 500 })
-    const staffOk = await bcrypt.compare(password, staffHash)
-    if (!staffOk) return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
-    const staffAccount: number | undefined = staffData.account_id
-    if (typeof staffAccount !== 'number') return NextResponse.json({ success: false, error: 'Account link missing' }, { status: 500 })
-    const role: string = staffData.role || 'waiter'
-    const email = `${credentialInput}@staff.local` // synthetic (not used for contact)
+    if (staffData.active === false) return NextResponse.json({ success: false, error: 'Account disabled' }, { status: 403 })
+    if (!staffData.password) return serverError('Password not set')
+    if (!(await bcrypt.compare(password, staffData.password))) return invalidCredentials()
+    if (typeof staffData.account_id !== 'number') return serverError('Account link missing')
+
+    const role = staffData.role || 'waiter'
+    const email = `${credentialInput}@staff.local` // synthetic email for token
     const sub = `staff-${staffData.id}`
-  const token = createToken({ sub, email, accountId: String(staffAccount), accountNumericId: staffAccount, role, username: staffData.username })
-    const res = NextResponse.json({ success: true, user: { id: staffData.id, email, account_id: staffAccount, role, username: staffData.username, staff: true } })
-    res.cookies.set('auth_token', token, cookieOpts())
-    return res
+
+    return sendToken(sub, staffData.account_id, role, staffData.username, email, true)
   } catch (err) {
     console.error('[AUTH][LOGIN] Error', err)
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
   }
+}
+
+// ---------------- Helper functions ----------------
+function sendToken(
+  sub: string,
+  accountId: number,
+  role: string,
+  username: string,
+  email: string,
+  staff = false
+) {
+  const token = createToken({
+    sub,
+    email,
+    accountId: String(accountId),
+    accountNumericId: accountId,
+    role,
+    username,
+  })
+  const res = NextResponse.json({
+    success: true,
+    user: { id: sub, email, account_id: accountId, role, username, staff },
+  })
+  res.cookies.set('auth_token', token, cookieOpts())
+  return res
+}
+
+function invalidCredentials() {
+  return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
+}
+
+function serverError(msg: string) {
+  return NextResponse.json({ success: false, error: msg }, { status: 500 })
 }
 
 function cookieOpts() {
@@ -99,5 +119,3 @@ function cookieOpts() {
     path: '/',
   }
 }
-
-// Firebase REST no longer used after switching to custom hashed login

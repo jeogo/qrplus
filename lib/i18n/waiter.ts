@@ -26,6 +26,10 @@ export const waiterTexts = {
     updated: "تم التحديث",
     updatedDesc: "تم تحديث الطلبات بنجاح",
     activeOrders: "طلبات نشطة",
+  servedSuccess: "تم تقديم الطلب",
+  cancelledSuccess: "تم إلغاء الطلب",
+  serveFailed: "تعذر تقديم الطلب",
+  cancelFailed: "تعذر إلغاء الطلب",
   },
   fr: {
     title: "Serveur",
@@ -54,6 +58,10 @@ export const waiterTexts = {
     updated: "Actualisé",
     updatedDesc: "Commandes mises à jour avec succès",
     activeOrders: "commandes actives",
+  servedSuccess: "Commande servie",
+  cancelledSuccess: "Commande annulée",
+  serveFailed: "Échec du service",
+  cancelFailed: "Échec de l'annulation",
   }
 }
 

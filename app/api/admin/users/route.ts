@@ -34,29 +34,35 @@ interface RawUserDoc {
   password?: string
   [k: string]: unknown
 }
+
+// Sanitize Firestore raw doc to StaffUser
 function sanitize(u: RawUserDoc): StaffUser {
   return {
-  id: u.id ?? 0,
-  account_id: u.account_id ?? 0,
-  username: u.username ?? '',
-  username_lower: u.username_lower ?? (u.username ?? '').toLowerCase(),
-  role: u.role ?? 'waiter',
+    id: u.id ?? 0,
+    account_id: u.account_id ?? 0,
+    username: u.username ?? '',
+    username_lower: u.username_lower ?? (u.username ?? '').toLowerCase(),
+    role: u.role ?? 'waiter',
     permissions: {
       approve_orders: !!u.permissions?.approve_orders,
       serve_orders: !!u.permissions?.serve_orders,
       make_ready: !!u.permissions?.make_ready,
     },
     active: u.active !== false,
-  created_at: u.created_at ?? new Date().toISOString(),
-  updated_at: u.updated_at ?? new Date().toISOString(),
+    created_at: u.created_at ?? new Date().toISOString(),
+    updated_at: u.updated_at ?? new Date().toISOString(),
   }
 }
 
+// GET /api/admin/staff_users - List all staff for current account
 export async function GET() {
   try {
     const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+    if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
+
     const snap = await admin.firestore().collection('staff_users').where('account_id', '==', accountId).get()
     const users = snap.docs.map(d => sanitize(d.data()))
     return NextResponse.json({ success: true, data: users })
@@ -66,40 +72,38 @@ export async function GET() {
   }
 }
 
+// POST /api/admin/staff_users - Add a new staff user
 export async function POST(req: NextRequest) {
   try {
     const sess = await requireSession()
     if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
+    if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
 
     const body = await req.json()
-    const username: string = String(body.username || '').trim()
-    const password: string = String(body.password || '')
+    const username = String(body.username || '').trim()
+    const password = String(body.password || '')
     const role: 'waiter' | 'kitchen' = body.role === 'kitchen' ? 'kitchen' : 'waiter'
     const perms = body.permissions || {}
 
-    if (!username || username.length < 3) {
-      return NextResponse.json({ success: false, error: 'Invalid username' }, { status: 400 })
-    }
-    if (password.length < 6) {
-      return NextResponse.json({ success: false, error: 'Weak password' }, { status: 400 })
-    }
+    if (!username || username.length < 3) return NextResponse.json({ success: false, error: 'Invalid username' }, { status: 400 })
+    if (password.length < 6) return NextResponse.json({ success: false, error: 'Weak password' }, { status: 400 })
 
-    // Unique username per account
-    const dupSnap = await admin.firestore().collection('staff_users')
+    // Check for duplicate username within the account
+    const dupSnap = await admin.firestore()
+      .collection('staff_users')
       .where('account_id', '==', accountId)
       .where('username_lower', '==', username.toLowerCase())
       .limit(1)
       .get()
-    if (!dupSnap.empty) {
-      return NextResponse.json({ success: false, error: 'Username exists' }, { status: 409 })
-    }
+    if (!dupSnap.empty) return NextResponse.json({ success: false, error: 'Username exists' }, { status: 409 })
 
     const now = new Date().toISOString()
     const id = await nextSequence('staff_users')
     const passwordHash = await bcrypt.hash(password, 10)
 
-  const doc = {
+    const doc: RawUserDoc & { password: string } = {
       id,
       account_id: accountId,
       username,
@@ -107,11 +111,9 @@ export async function POST(req: NextRequest) {
       password: passwordHash,
       role,
       permissions: {
-    // Waiter: can only serve orders (no approve, no make_ready)
-    approve_orders: role === 'waiter' ? false : !!perms.approve_orders,
-    serve_orders: role === 'waiter' ? true : !!perms.serve_orders,
-    // Kitchen: can make orders ready
-    make_ready: role === 'kitchen' ? true : !!perms.make_ready,
+        approve_orders: role === 'waiter' ? false : !!perms.approve_orders,
+        serve_orders: role === 'waiter' ? true : !!perms.serve_orders,
+        make_ready: role === 'kitchen' ? true : !!perms.make_ready,
       },
       active: true,
       created_at: now,

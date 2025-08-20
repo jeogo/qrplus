@@ -3,55 +3,93 @@ import admin from '@/lib/firebase/admin'
 import { requireSession } from '@/lib/auth/session'
 import { nextSequence } from '@/lib/firebase/sequences'
 
+// GET /api/products?category_id=&q=&limit=
 export async function GET(req: NextRequest) {
   try {
     const sess = await requireSession()
     const url = new URL(req.url)
-    const categoryId = url.searchParams.get('category_id')
+    const categoryIdRaw = url.searchParams.get('category_id')
     const qParam = (url.searchParams.get('q') || '').trim().toLowerCase()
     const limitParam = Number(url.searchParams.get('limit') || '60')
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 300) : 60
+
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     }
+
     const db = admin.firestore()
     let q: FirebaseFirestore.Query = db.collection('products').where('account_id', '==', accountIdNum)
-    if (categoryId) q = q.where('category_id', '==', Number(categoryId))
-    // Using orderBy name for deterministic pagination (future); Firestore requires index if combining multiple where/order fields
-    const snap = await q.orderBy('name').limit(limit).get()
-    interface ProductDoc { id?:number; name?:string; [k:string]:unknown }
-    let data: ProductDoc[] = snap.docs.map(d => d.data() as ProductDoc)
-    if (qParam) {
-      data = data.filter(d=> typeof d.name === 'string' && d.name.toLowerCase().includes(qParam))
+
+    if (categoryIdRaw) {
+      const categoryId = Number(categoryIdRaw)
+      if (!Number.isInteger(categoryId)) {
+        return NextResponse.json({ success: false, error: 'INVALID_CATEGORY' }, { status: 400 })
+      }
+      q = q.where('category_id', '==', categoryId)
     }
-    return NextResponse.json({ success: true, data })
+
+    const snap = await q.orderBy('name').limit(limit).get()
+    const data = snap.docs.map(d => d.data())
+
+    // simple client-side search
+    const filtered = qParam
+      ? data.filter(d => typeof d.name === 'string' && d.name.toLowerCase().includes(qParam))
+      : data
+
+    return NextResponse.json({ success: true, data: filtered })
   } catch (err) {
     return handleError(err)
   }
 }
 
+// POST /api/products
 export async function POST(req: NextRequest) {
   try {
     const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    if (sess.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     }
+
     const name = toTrimmed(body.name)
     if (!name) return NextResponse.json({ success: false, error: 'Name required' }, { status: 422 })
+
     const category_id = Number(body.category_id)
-    if (!category_id) return NextResponse.json({ success: false, error: 'category_id required' }, { status: 422 })
+    if (!Number.isInteger(category_id) || category_id < 1) {
+      return NextResponse.json({ success: false, error: 'Category_id required' }, { status: 422 })
+    }
+
     const price = Number(body.price)
-    if (isNaN(price) || price < 0) return NextResponse.json({ success: false, error: 'price invalid' }, { status: 422 })
+    if (!Number.isFinite(price) || price < 0) {
+      return NextResponse.json({ success: false, error: 'Price invalid' }, { status: 422 })
+    }
+
     const description = toOptional(body.description)
     const image_url = toOptional(body.image_url) || ''
     const available = typeof body.available === 'boolean' ? body.available : true
+
     const id = await nextSequence('products')
-    const now = new Date().toISOString()
-  const doc = { id, account_id: accountIdNum, category_id, name, description, image_url, price, available, created_at: now, updated_at: now }
+    const now = admin.firestore.Timestamp.now()
+
+    const doc = {
+      id,
+      account_id: accountIdNum,
+      category_id,
+      name,
+      description,
+      image_url,
+      price,
+      available,
+      created_at: now,
+      updated_at: now,
+    }
+
     await admin.firestore().collection('products').doc(String(id)).set(doc)
     return NextResponse.json({ success: true, data: doc }, { status: 201 })
   } catch (err) {
@@ -59,8 +97,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function toTrimmed(v: unknown): string | null { return typeof v === 'string' ? v.trim() || null : null }
-function toOptional(v: unknown): string | undefined { const t = toTrimmed(v); return t === null ? undefined : t }
+function toTrimmed(v: unknown): string | null {
+  return typeof v === 'string' ? v.trim() || null : null
+}
+function toOptional(v: unknown): string | undefined {
+  const t = toTrimmed(v)
+  return t === null ? undefined : t
+}
 
 interface AppError { status?: number }
 function handleError(err: unknown) {

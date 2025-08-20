@@ -21,6 +21,10 @@ const kitchenTexts = {
     orderReadyDesc: "طلب جديد جاهز للإعداد",
     approvedOrders: "طلبات للإعداد",
     ordersToPrep: "طلب في انتظار الإعداد",
+  markedReadySuccess: "تم وضع علامة جاهز",
+  markedReadyFail: "فشل التحديث",
+  cancelledSuccess: "تم الإلغاء",
+  cancelledFail: "فشل الإلغاء",
     // Order statuses
     pending: "في الانتظار",
     approved: "معتمد",
@@ -47,6 +51,10 @@ const kitchenTexts = {
     orderReadyDesc: "Nouvelle commande à préparer",
     approvedOrders: "Commandes à Préparer",
     ordersToPrep: "commande(s) à préparer",
+  markedReadySuccess: "Commande marquée prête",
+  markedReadyFail: "Échec de la mise à jour",
+  cancelledSuccess: "Commande annulée",
+  cancelledFail: "Échec de l'annulation",
     // Order statuses
     pending: "En Attente",
     approved: "Approuvé",
