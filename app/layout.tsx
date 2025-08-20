@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { NotificationsHost } from "@/components/notifications-host"
 import { ServiceWorkerRegister } from "@/components/sw-register"
 import { PushBootstrap } from "@/components/push-bootstrap"
+import { PWAInstallBanner } from "@/components/pwa-install-banner"
 import "./globals.css"
 
 
@@ -59,6 +60,7 @@ export default function RootLayout({
           <NotificationsHost>
               <ServiceWorkerRegister />
             <PushBootstrap />
+            <PWAInstallBanner />
             {children}
             <Toaster richColors position="top-right" />
           </NotificationsHost>

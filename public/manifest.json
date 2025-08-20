@@ -1,11 +1,11 @@
 {
-  "name": "Restaurant Admin - إدارة المطعم",
-  "short_name": "Restaurant Admin",
-  "description": "Restaurant menu management system with bilingual support",
+  "name": "QRPlus Restaurant System - إدارة المطعم",
+  "short_name": "QRPlus",
+  "description": "QRPlus bilingual restaurant ordering & analytics",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#15803d",
   "orientation": "portrait-primary",
   "icons": [
     {
