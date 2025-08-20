@@ -11,15 +11,9 @@ import { AdminLayout } from '@/components/admin-bottom-nav'
 import { Calendar, RefreshCw, BarChart3, TrendingUp, ShoppingBag, Clock, DollarSign, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAnalyticsTexts } from '@/lib/i18n/analytics'
+import type { OrdersSummaryResponse, OrderAnalyticsSummary, OrdersSummaryOrderRow } from '@/types/analytics'
 
-interface Order {
-  id: number
-  table_id: number
-  status: string
-  total: number
-  created_at: string
-  daily_number?: number
-}
+// (Order interface superseded by OrdersSummaryOrderRow from shared analytics types)
 
 type TimePeriod = 'today' | 'last3days' | 'lastweek' | 'lastmonth' | 'custom'
 
@@ -27,7 +21,8 @@ export default function AdminAnalyticsPage() {
   const router = useRouter()
   const language = useAdminLanguage()
   const t = useMemo(()=> getAnalyticsTexts(language), [language])
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<OrdersSummaryOrderRow[]>([])
+  const [summary,setSummary] = useState<OrderAnalyticsSummary|null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('today')
   const [customFromDate, setCustomFromDate] = useState('')
@@ -82,17 +77,17 @@ export default function AdminAnalyticsPage() {
       const { from, to } = getDateRange(selectedPeriod)
       const controller = new AbortController()
       const timeout = setTimeout(()=> controller.abort(), 15000)
-      const response = await fetch('/api/orders', { cache: 'no-store', signal: controller.signal })
+      const qs = new URLSearchParams()
+      qs.set('from', from)
+      qs.set('to', to)
+      const response = await fetch(`/api/admin/analytics/orders-summary?${qs.toString()}`, { cache: 'no-store', signal: controller.signal })
       clearTimeout(timeout)
       if (!response.ok) throw new Error('failed')
       const data = await response.json()
       if (!data.success) throw new Error(data.error || 'failed')
-      const filteredOrders = data.data.filter((order: Order) => {
-        if (!order.created_at) return false
-        const orderDate = new Date(order.created_at)
-        return orderDate >= new Date(from) && orderDate <= new Date(to)
-      })
-      setOrders(filteredOrders)
+  const payload = data.data as OrdersSummaryResponse
+  setSummary(payload.summary)
+  setOrders(payload.orders)
       setUpdatedAt(new Date().toLocaleTimeString())
       toast.success(t.toasts.refreshed)
     } catch (e) {
@@ -109,40 +104,7 @@ export default function AdminAnalyticsPage() {
   }, [fetchOrders])
 
   // Calculate analytics
-  const analytics = useMemo(() => {
-    const totalOrders = orders.length
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0)
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-    
-    // Status breakdown
-    const statusCounts = orders.reduce((acc, order) => {
-      acc[order.status] = (acc[order.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-    
-    // Daily breakdown for charts
-    const dailyStats = orders.reduce((acc, order) => {
-      if (!order.created_at) return acc
-      const date = new Date(order.created_at).toISOString().split('T')[0]
-      if (!acc[date]) {
-        acc[date] = { orders: 0, revenue: 0 }
-      }
-      acc[date].orders += 1
-      acc[date].revenue += order.total || 0
-      return acc
-    }, {} as Record<string, { orders: number; revenue: number }>)
-
-    return {
-      totalOrders,
-      totalRevenue,
-      averageOrderValue,
-      statusCounts,
-      dailyStats: Object.entries(dailyStats).map(([date, stats]) => ({
-        date,
-        ...stats
-      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    }
-  }, [orders])
+  const analytics: OrderAnalyticsSummary = useMemo(()=> summary || { totalOrders:0, totalRevenue:0, averageOrderValue:0, statusCounts:{}, dailyStats:[], servedRevenue:0, servedCount:0, cancelledCount:0, averageServeMinutes:null, todayServedCount:0, todayServedRevenue:0, archivedCount:0 },[summary])
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -311,6 +273,59 @@ export default function AdminAnalyticsPage() {
                 </div>
               </CardContent>
             </Card>
+            {/* Extra metrics */}
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">{t.stats.todayServed}</p>
+                    <p className="text-3xl font-bold tabular-nums">{analytics.todayServedCount.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <Clock className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">{t.stats.todayRevenue}</p>
+                    <p className="text-3xl font-bold tabular-nums">{analytics.todayServedRevenue.toLocaleString()} {t.currency}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <DollarSign className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">{t.stats.cancelled}</p>
+                    <p className="text-3xl font-bold tabular-nums">{(analytics.statusCounts.cancelled || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <TrendingUp className="h-6 w-6 text-primary rotate-180" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/60 shadow-soft bg-gradient-to-br from-background to-muted/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide mb-1">{t.stats.avgServeTime}</p>
+                    <p className="text-3xl font-bold tabular-nums">{(analytics.averageServeMinutes ?? 0).toFixed(1)}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <Clock className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Status Breakdown */}
@@ -422,7 +437,7 @@ export default function AdminAnalyticsPage() {
                           {order.total.toLocaleString()} {t.currency}
                         </div>
                         <div className="text-sm text-slate-500">
-                          {new Date(order.created_at).toLocaleString(language === 'ar' ? 'ar-DZ' : 'fr-FR')}
+                          {order.created_at ? new Date(order.created_at).toLocaleString(language === 'ar' ? 'ar-DZ' : 'fr-FR') : '-'}
                         </div>
                       </div>
                     </div>

@@ -12,9 +12,7 @@ export async function GET(req: NextRequest) {
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if(!Number.isFinite(accountId)) return new Response('Account missing',{ status:400 })
 
-  const { searchParams } = new URL(req.url)
-  const _role = searchParams.get('role') || 'kitchen'
-  // _role reserved for future filtering logic
+  // role param reserved for future filtering logic (removed to avoid unused var warning)
 
     const db = admin.firestore()
     const ordersCol = db.collection('orders').where('account_id','==',accountId)

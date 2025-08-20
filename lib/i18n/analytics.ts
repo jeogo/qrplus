@@ -18,7 +18,11 @@ export const analyticsTexts = {
       totalOrders: 'إجمالي الطلبات',
       totalRevenue: 'إجمالي الإيرادات',
       averageOrder: 'متوسط الطلب',
-      servedOrders: 'الطلبات المكتملة'
+  servedOrders: 'الطلبات المكتملة',
+  todayServed: 'المكتملة اليوم',
+  todayRevenue: 'إيراد اليوم المكتمل',
+  cancelled: 'الملغاة',
+  avgServeTime: 'متوسط التقديم (د)'
     },
     currency: 'دج',
     statusBreakdown: 'حالة الطلبات',
@@ -60,7 +64,11 @@ export const analyticsTexts = {
       totalOrders: 'Total Commandes',
       totalRevenue: 'Revenus Total',
       averageOrder: 'Commande Moyenne',
-      servedOrders: 'Commandes Servies'
+  servedOrders: 'Commandes Servies',
+  todayServed: 'Servies Aujourd\'hui',
+  todayRevenue: 'Recettes Servies Aujourd\'hui',
+  cancelled: 'Annulées',
+  avgServeTime: 'Temps Moyen Service (min)'
     },
     currency: 'DZD',
     statusBreakdown: 'Statut des Commandes',
