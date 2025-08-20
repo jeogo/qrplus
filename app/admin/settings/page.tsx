@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2, RefreshCw, RotateCcw } from "lucide-react"
+import { Loader2, RefreshCw, RotateCcw, LogOut } from "lucide-react"
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { AdminActionOverlay } from "@/components/admin-action-overlay"
@@ -14,6 +14,7 @@ import { SystemStatusCard } from './components/system-status-card'
 import { RestaurantInfoForm } from './components/restaurant-info-form'
 import { OfflineAlert } from './components/offline-alert'
 import { toast } from 'sonner'
+import { logout } from '@/lib/auth/session-client'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 
 interface RestaurantSettings {
@@ -263,6 +264,15 @@ export default function AdminSettingsPage() {
                     <RefreshCw className="h-4 w-4" />
                   )}
                   {L.refresh}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async ()=> { const ok = await logout(); if (ok) { toast.success(language==='ar'? 'تم تسجيل الخروج':'Déconnecté'); window.location.href='/auth' } else { toast.error(language==='ar'? 'فشل تسجيل الخروج':'Échec déconnexion') } }}
+                  className="flex items-center gap-2 border-slate-200 hover:bg-slate-50 text-red-600"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {language==='ar'? 'خروج':'Logout'}
                 </Button>
                 <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
                   <AlertDialogTrigger asChild>

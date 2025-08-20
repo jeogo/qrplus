@@ -6,6 +6,8 @@ import { AdminHeader, useAdminLanguage } from '@/components/admin-header'
 import { getWaiterTexts } from '@/lib/i18n/waiter'
 import { useSession } from '@/hooks/use-session'
 import { StatsHeader, WaiterLoadingSkeleton, OrdersList, useWaiterOrders, Order } from './components'
+import { logout } from '@/lib/auth/session-client'
+import { LogOut } from 'lucide-react'
 
 export default function WaiterPage(){
   const language = useAdminLanguage()
@@ -66,6 +68,13 @@ export default function WaiterPage(){
           onServe={async (id:number)=> { const ok = await serve(id); if (ok) { toast.success(t.servedSuccess) } else { toast.error(t.serveFailed) } }}
           onCancel={async (id:number)=> { const ok = await cancel(id); if (ok) { toast.success(t.cancelledSuccess) } else { toast.error(t.cancelFailed) } }}
         />
+        <button
+          onClick={async ()=> { const ok = await logout(); if (ok) { toast.success(language==='ar'? 'تم تسجيل الخروج':'Déconnecté'); window.location.href='/auth' } else { toast.error(language==='ar'? 'فشل تسجيل الخروج':'Échec déconnexion') } }}
+          className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg w-14 h-14 flex items-center justify-center focus:outline-none"
+          aria-label={language==='ar'? 'تسجيل الخروج':'Logout'}
+        >
+          <LogOut className="h-6 w-6" />
+        </button>
       </main>
     </div>
   )

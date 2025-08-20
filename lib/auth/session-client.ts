@@ -71,3 +71,18 @@ export function fetchSession(): Promise<SessionUser | null> {
   })()
   return inFlight
 }
+
+// Perform logout: call server endpoint to clear cookie, invalidate local cache
+export async function logout(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/logout', { method: 'POST' })
+    // Regardless of response, clear local cache
+    invalidateSessionCache()
+    setCachedSession(null)
+    return res.ok
+  } catch {
+    invalidateSessionCache()
+    setCachedSession(null)
+    return false
+  }
+}
