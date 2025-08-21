@@ -26,10 +26,13 @@ export async function POST(
     const hasNote = note.length > 0
   if (!itemsInput.length || itemsInput.length > 40) throw new ValidationError('INVALID_ITEMS')
 
-    const normalized: { product_id: number; quantity: number }[] = []
-    for (const raw of itemsInput) {
-      const pid = Number(raw?.product_id)
-      const qty = Number(raw?.quantity)
+    interface NormalizedItem { product_id: number; quantity: number }
+    const normalized: NormalizedItem[] = []
+    for (const raw of itemsInput as Array<{ product_id?:unknown; quantity?:unknown }>) {
+      const pidRaw = (raw && typeof raw === 'object') ? (raw as { product_id?:unknown }).product_id : undefined
+      const qtyRaw = (raw && typeof raw === 'object') ? (raw as { quantity?:unknown }).quantity : undefined
+      const pid = Number(pidRaw)
+      const qty = Number(qtyRaw)
   if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0 || qty > 50) throw new ValidationError('INVALID_ITEMS')
       normalized.push({ product_id: pid, quantity: qty })
     }
@@ -53,7 +56,6 @@ export async function POST(
       .limit(1)
       .get()
     if (!activeSnap.empty) {
-      const existing = activeSnap.docs[0].data()
       throw new ConflictError('ACTIVE_ORDER_EXISTS')
     }
 

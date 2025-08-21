@@ -15,7 +15,7 @@ const STATUS_FLOW: Record<string,string[]> = { pending:['approved'], approved:['
 export interface AdminOrderCardProps {
   order: Order
   items: OrderItem[]
-  language: 'ar' | 'fr' | 'en'
+  // language prop removed (not used)
   onTransition: (id:number, status:string)=> Promise<void>
   onRemove: (id:number)=> Promise<void>
   onLoadDetails: ()=> void
@@ -24,7 +24,7 @@ export interface AdminOrderCardProps {
   mode?: 'cards' | 'list' | 'compact'
 }
 
-export function AdminOrderCard({ order, items, language, onTransition, onRemove, onLoadDetails, actionLoading, L, mode='cards' }: AdminOrderCardProps){
+export function AdminOrderCard({ order, items, onTransition, onRemove, onLoadDetails, actionLoading, L, mode='cards' }: AdminOrderCardProps){
   const [loadedDetails, setLoadedDetails] = useState(false)
   const [mounted, setMounted] = useState(false)
 

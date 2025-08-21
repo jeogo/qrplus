@@ -19,8 +19,8 @@ export function toErrorResponse(err: unknown, route?: string): { status:number; 
   return { status, body: { success:false, error:{ code, message } } }
 }
 
-function isHttpLike(e: any): e is { status?:number; code?:string; message?:string } {
-  return e && typeof e === 'object'
+function isHttpLike(e: unknown): e is { status?:number; code?:string; message?:string } {
+  return !!e && typeof e === 'object'
 }
 
 function mapStatusMessage(status:number, base?:string){
@@ -38,6 +38,6 @@ function normalizeMessage(e: AppError){
 }
 
 // Assertion helper to shorten guard clauses.
-export function assert(condition: any, code='BAD_REQUEST', message='Bad request', status=400){
+export function assert(condition: unknown, code='BAD_REQUEST', message='Bad request', status=400){
   if(!condition) throw new AppError(message, status, code)
 }

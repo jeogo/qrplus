@@ -14,10 +14,9 @@ interface TableDialogProps {
   adding?: boolean
   initialNumber?: number | null
   texts: { addTable: string; editTable: string; tableNumber: string; tableName: string; save: string; cancel: string; adding: string; updating: string; instructions?: string }
-  language: 'ar' | 'fr' | 'en'
 }
 
-export function TableDialog({ open, onOpenChange, onConfirm, editing, adding, initialNumber, texts, language }: TableDialogProps) {
+export function TableDialog({ open, onOpenChange, onConfirm, editing, adding, initialNumber, texts }: TableDialogProps) {
   const [value, setValue] = useState(initialNumber ? String(initialNumber) : '')
   const isEdit = initialNumber != null
 

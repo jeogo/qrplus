@@ -67,7 +67,7 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, language])
+  }, [statusFilter, L.orderDeleteFailed])
 
   /* -------- Order Detail Caching / Prefetch -------- */
   interface DetailCacheEntry { items: OrderItem[]; note?: string; fetchedAt: number }
@@ -318,7 +318,6 @@ export default function AdminOrdersPage() {
                 key={o.id}
                 order={o}
                 items={readCache(o.id)?.items || []}
-                language={language}
                 onTransition={transition}
                 onRemove={removeOrder}
                 onLoadDetails={()=>prefetchDetail(o.id)}

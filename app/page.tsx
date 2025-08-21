@@ -68,7 +68,7 @@ export default function LandingPage() {
     localStorage.setItem("landing-language", newLang)
   }
 
-  const t = useMemo(()=> getLandingTexts(language as any), [language])
+  const t = useMemo(()=> getLandingTexts(language), [language])
 
   if (!mounted) return null
 

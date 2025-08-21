@@ -96,14 +96,12 @@ const kitchenTexts = {
 }
 
 // Add supplemental shared keys used by components if missing (fallback handled in component)
-;(kitchenTexts as any).ar.loadingDetails ||= kitchenTexts.ar.loading
-;(kitchenTexts as any).fr.loadingDetails ||= kitchenTexts.fr.loading
-;(kitchenTexts as any).en.loadingDetails ||= kitchenTexts.en.loading
-;(kitchenTexts as any).ar.note ||= 'ملاحظة'
-;(kitchenTexts as any).fr.note ||= 'Note'
-;(kitchenTexts as any).en.note ||= 'Note'
-;(kitchenTexts as any).ar.cancel ||= 'إلغاء'
-;(kitchenTexts as any).fr.cancel ||= 'Annuler'
-;(kitchenTexts as any).en.cancel ||= 'Cancel'
+type Lang = 'ar'|'fr'|'en'
+(['ar','fr','en'] as Lang[]).forEach(l => {
+  const base = (kitchenTexts as Record<Lang,Record<string,string>>)[l]
+  if (!base.loadingDetails) base.loadingDetails = base.loading
+  if (!base.note) base.note = l==='ar'? 'ملاحظة':'Note'
+  if (!base.cancel) base.cancel = l==='ar'? 'إلغاء': l==='fr'? 'Annuler':'Cancel'
+})
 
 export function getKitchenTexts(language: "ar" | "fr" | "en") { return kitchenTexts[language] }
