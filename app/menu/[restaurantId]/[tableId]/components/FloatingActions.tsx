@@ -8,20 +8,21 @@ interface FloatingActionsProps {
 	hasActiveOrder: boolean
 	onOpenCart: ()=>void
 	onOpenTracker: ()=>void
+	t: import('@/lib/i18n/public-menu').PublicMenuTexts
 }
 
-export const FloatingActions = memo(function FloatingActions({ cartCount, hasActiveOrder, onOpenCart, onOpenTracker }: FloatingActionsProps){
+export const FloatingActions = memo(function FloatingActions({ cartCount, hasActiveOrder, onOpenCart, onOpenTracker, t }: FloatingActionsProps){
 	return (
 		<div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
 			{hasActiveOrder && (
-				<Button onClick={onOpenTracker} className="rounded-full w-14 h-14 p-0 shadow-lg relative bg-primary text-primary-foreground hover:shadow-xl hover:scale-105 active:scale-95 transition-all" aria-label="order tracker">
+				<Button onClick={onOpenTracker} className="rounded-full w-14 h-14 p-0 shadow-lg relative bg-primary text-primary-foreground hover:shadow-xl hover:scale-105 active:scale-95 transition-all" aria-label={t.orderTracker}>
 					<ChefHat className="w-5 h-5" />
 					<div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border-2 border-primary animate-ping"></div>
 					<div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"></div>
 				</Button>
 			)}
 			{cartCount > 0 && (
-				<Button onClick={onOpenCart} className="rounded-full w-14 h-14 p-0 shadow-lg relative bg-primary text-primary-foreground hover:shadow-xl hover:scale-105 active:scale-95 transition-all" aria-label="open cart">
+				<Button onClick={onOpenCart} className="rounded-full w-14 h-14 p-0 shadow-lg relative bg-primary text-primary-foreground hover:shadow-xl hover:scale-105 active:scale-95 transition-all" aria-label={t.openCart}>
 					<ShoppingCart className="w-5 h-5" />
 					<span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-xs font-medium text-destructive-foreground">{cartCount}</span>
 				</Button>

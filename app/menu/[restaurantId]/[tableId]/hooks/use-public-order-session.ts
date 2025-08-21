@@ -4,7 +4,7 @@ import { OrderTracking } from '@/lib/order-tracking'
 
 export interface PublicCategory { id:number; name:string; description?:string; image_url?:string }
 export interface PublicProduct { id:number; name:string; name_ar?:string; name_fr?:string; description?:string; price:number; image_url?:string; available?:boolean }
-export interface CartItem { id:number; name_ar:string; name_fr:string; price:number; quantity:number; image:string }
+export interface CartItem { id:number; name_ar:string; name_fr:string; name_en:string; price:number; quantity:number; image:string }
 export type OrderStatus = 'pending'|'accepted'|'preparing'|'ready'|'served'
 export interface Order { id:number; table_id:string; status:OrderStatus; total_amount:number; created_at:string; items:{ product_id:number; quantity:number; price:number; product_name:string }[] }
 export interface RestaurantMeta { id:number; restaurant_name:string; logo_url?:string; language:'ar'|'fr'|'en'; currency:string; is_active:boolean }
@@ -55,7 +55,7 @@ export function usePublicOrderSession({ restaurantId, tableId }:UsePublicOrderSe
     setCart(prev=>{
       const ex = prev.find(i=>i.id===p.id)
       if(ex) return prev.map(i=> i.id===p.id? { ...i, quantity: i.quantity + quantity }:i)
-      return [...prev, { id:p.id, name_ar:p.name_ar || p.name, name_fr:p.name_fr || p.name, price:p.price, quantity, image:p.image_url||'' }]
+  return [...prev, { id:p.id, name_ar:p.name_ar || p.name, name_fr:p.name_fr || p.name, name_en:p.name, price:p.price, quantity, image:p.image_url||'' }]
     })
     setTimeout(()=> setAddingToCart(null), 400)
   },[])

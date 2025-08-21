@@ -51,7 +51,7 @@ export const ProductGrid = memo(function ProductGrid({ products, loading, error,
 			{error && (
 				<div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
 					<p className="text-sm text-destructive mb-3">{error}</p>
-					<button onClick={onRetry} className="text-xs font-medium text-destructive underline">Retry</button>
+					<button onClick={onRetry} className="text-xs font-medium text-destructive underline">{t.retry}</button>
 				</div>
 			)}
 			{!error && (
@@ -83,24 +83,24 @@ export const ProductGrid = memo(function ProductGrid({ products, loading, error,
 									)}
 									{p.available === false && (
 										<div className="absolute inset-0 backdrop-blur-[3px] bg-background/70 flex items-center justify-center">
-											<span className="rounded-full bg-destructive/90 px-4 py-1.5 text-xs font-medium text-destructive-foreground tracking-wide shadow-md">{currency==='د.ج' ? 'غير متوفر' : 'Unavailable'}</span>
+											<span className="rounded-full bg-destructive/90 px-4 py-1.5 text-xs font-medium text-destructive-foreground tracking-wide shadow-md">{t.unavailable}</span>
 										</div>
 									)}
 								</div>
 								<div className="flex flex-1 flex-col p-4 gap-3">
 									<div className="space-y-1.5">
-										<h3 className="text-sm font-semibold text-foreground line-clamp-1 tracking-tight">{language==='ar' ? (p.name_ar||p.name) : (p.name_fr||p.name)}</h3>
+										<h3 className="text-sm font-semibold text-foreground line-clamp-1 tracking-tight">{language==='ar'? (p.name_ar||p.name) : language==='fr'? (p.name_fr||p.name) : p.name}</h3>
 										{p.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{p.description}</p>}
 									</div>
 									<div className="mt-auto flex items-center justify-between gap-2">
 										<span className="text-sm font-semibold tabular-nums">{p.price} {currency}</span>
 										{qty > 0 ? (
 											<div className="flex items-center gap-2">
-												<Button size="sm" variant="outline" onClick={()=>onDec(p.id)} aria-label="decrease" className="h-8 w-8 p-0 rounded-full"> 
+												<Button size="sm" variant="outline" onClick={()=>onDec(p.id)} aria-label={t.decrease} className="h-8 w-8 p-0 rounded-full"> 
 													<Minus className="h-3 w-3" /> 
 												</Button>
 												<span className="text-sm font-medium w-6 text-center select-none tabular-nums">{qty}</span>
-												<Button size="sm" variant="outline" onClick={()=>onInc(p.id)} aria-label="increase" className="h-8 w-8 p-0 rounded-full"> 
+												<Button size="sm" variant="outline" onClick={()=>onInc(p.id)} aria-label={t.increase} className="h-8 w-8 p-0 rounded-full"> 
 													<Plus className="h-3 w-3" /> 
 												</Button>
 											</div>
@@ -120,7 +120,7 @@ export const ProductGrid = memo(function ProductGrid({ products, loading, error,
 			{!loading && !error && filtered.length === 0 && (
 				<div className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 text-center">
 					<Star className="h-12 w-12 text-muted-foreground/30 mb-3" />
-					<p className="text-muted-foreground">No products found.</p>
+					<p className="text-muted-foreground">{t.noProducts}</p>
 				</div>
 			)}
 		</div>

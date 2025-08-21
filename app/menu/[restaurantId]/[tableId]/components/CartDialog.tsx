@@ -64,16 +64,16 @@ export function CartDialog({ open, onOpenChange, cart, t, language, currency, ca
 										)}
 										<div className="flex-1 min-w-0">
 											<h4 className="font-medium text-sm text-foreground truncate">
-												{language === 'ar' ? item.name_ar : item.name_fr}
+												{language==='ar'? (item.name_ar||item.name_en) : language==='fr'? (item.name_fr||item.name_en) : (item.name_en||item.name_fr||item.name_ar)}
 											</h4>
 											<p className="text-xs text-muted-foreground tabular-nums">{item.price} {currency}</p>
 										</div>
 										<div className="flex items-center gap-1">
-											<Button size="sm" variant="outline" onClick={()=>onDec(item.id)} className="h-7 w-7 p-0 rounded-full">
+											<Button size="sm" variant="outline" aria-label={t.decrease} onClick={()=>onDec(item.id)} className="h-7 w-7 p-0 rounded-full">
 												<Minus className="w-3 h-3" />
 											</Button>
 											<span className="w-6 text-center text-sm font-medium tabular-nums">{item.quantity}</span>
-											<Button size="sm" variant="outline" onClick={()=>onInc(item.id)} className="h-7 w-7 p-0 rounded-full">
+											<Button size="sm" variant="outline" aria-label={t.increase} onClick={()=>onInc(item.id)} className="h-7 w-7 p-0 rounded-full">
 												<Plus className="w-3 h-3" />
 											</Button>
 										</div>

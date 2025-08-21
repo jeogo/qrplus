@@ -34,7 +34,7 @@ export const Header = memo(function Header({ meta, restaurantId, tableId, t, onT
 					)}
 					<div className="truncate">
 						<h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg truncate">
-							{meta?.restaurant_name || `Restaurant ${restaurantId}`}
+							{meta?.restaurant_name || `${t.restaurant} ${restaurantId}`}
 						</h1>
 						<p className="text-xs text-muted-foreground">{t.table} {tableId}</p>
 					</div>
@@ -44,7 +44,7 @@ export const Header = memo(function Header({ meta, restaurantId, tableId, t, onT
 							variant="ghost"
 							size="sm"
 							onClick={onToggleLanguage}
-							aria-label="toggle language"
+							aria-label={t.toggleLanguage}
 							className="rounded-full h-10 w-10 hover:bg-primary/10"
 						>
 							<Globe className="w-5 h-5" />
@@ -55,7 +55,7 @@ export const Header = memo(function Header({ meta, restaurantId, tableId, t, onT
 								size="sm"
 								onClick={onOpenTracker}
 								className="relative h-10 w-10 rounded-full hover:bg-primary/10"
-								aria-label="order tracker"
+								aria-label={t.orderTracker}
 							>
 								<ChefHat className="w-5 h-5" />
 								<span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary animate-ping" />
@@ -68,7 +68,7 @@ export const Header = memo(function Header({ meta, restaurantId, tableId, t, onT
 								size="sm"
 								onClick={onOpenCart}
 								className="relative h-10 w-10 rounded-full hover:bg-primary/10"
-								aria-label="open cart"
+								aria-label={t.openCart}
 							>
 								<ShoppingCart className="w-5 h-5" />
 								<span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">

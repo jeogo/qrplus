@@ -43,14 +43,6 @@ export default function MenuAdminPage() {
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null)
 
   const L = useMemo(() => getAdminMenuTexts(language), [language])
-  const handleLanguageToggle = useCallback(() => {
-    const next = language === 'ar' ? 'fr' : language === 'fr' ? 'en' : 'ar'
-    try {
-      localStorage.setItem('admin-language', next)
-      localStorage.setItem('language', next)
-    } catch {}
-    window.dispatchEvent(new CustomEvent('languageChange', { detail: next }))
-  }, [language])
 
   // Restaurant settings (currency, name, language)
   interface MinimalSettings { currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'; restaurant_name: string; language: 'ar' | 'fr' | 'en' }
@@ -308,15 +300,6 @@ export default function MenuAdminPage() {
                 />
               </div>
               <div className="flex gap-3 w-full sm:w-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleLanguageToggle}
-                  className="h-12 px-4 rounded-2xl border-slate-200 hover:bg-slate-50 flex items-center gap-2"
-                  aria-label="toggle language"
-                >
-                  {language === 'ar' ? 'FR' : language === 'fr' ? 'EN' : 'AR'}
-                </Button>
                 <Button 
                   variant="outline" 
                   onClick={()=>{ if (refreshing) return; setRefreshing(true); setSearchTerm(''); Promise.all([refreshCategories(), selectedCategory? refreshProducts(selectedCategory):Promise.resolve()]).finally(()=>{ setRefreshing(false); notify({ type:'menu.refresh.success' }) }) }} 

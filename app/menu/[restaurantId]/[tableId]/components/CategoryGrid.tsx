@@ -25,7 +25,7 @@ export const CategoryGrid = memo(function CategoryGrid({ categories, loading, er
 				<div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
 					<p className="text-sm text-destructive mb-3">{error}</p>
 					<button onClick={onRetry} className="text-xs font-medium text-destructive underline">
-						Retry
+						{t.retry}
 					</button>
 				</div>
 			)}
@@ -65,7 +65,7 @@ export const CategoryGrid = memo(function CategoryGrid({ categories, loading, er
 			{!loading && !error && categories.length === 0 && (
 				<div className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 text-center">
 					<Star className="h-12 w-12 text-muted-foreground/30 mb-3" />
-					<p className="text-muted-foreground">No categories found.</p>
+					<p className="text-muted-foreground">{t.noCategories}</p>
 				</div>
 			)}
 		</div>
