@@ -15,6 +15,10 @@
     {
       "files": ["lib/notifications/**/*"],
       "rules": { "@typescript-eslint/no-explicit-any": "off" }
+    },
+    {
+      "files": ["components/ui/sonner.tsx", "lib/notifications/adapters/sonner.ts"],
+      "rules": { "no-restricted-imports": "off" }
     }
   ]
 }
