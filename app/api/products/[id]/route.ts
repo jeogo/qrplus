@@ -1,47 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { productUpdateSchema, type ProductUpdateInput } from '@/schemas/products'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
-
-    const idNum = Number(params.id)
+    await requirePermission('products','update')
+    const { id } = await context.params
+    const idNum = Number(id)
     if (!Number.isInteger(idNum) || idNum < 1) {
       return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
     }
 
-    const body = await req.json()
-    const updates: Partial<{
-      name: string
-      description: string
-      image_url: string
-      available: boolean
-      price: number
-      updated_at: FirebaseFirestore.Timestamp
-    }> = {}
-
-    if (typeof body.name === 'string') updates.name = body.name.trim()
-    if (typeof body.description === 'string') updates.description = body.description.trim()
-    if (typeof body.image_url === 'string') updates.image_url = body.image_url.trim()
-    if (typeof body.available === 'boolean') updates.available = body.available
-    if (typeof body.price !== 'undefined') {
-      const price = Number(body.price)
-      if (!Number.isFinite(price) || price < 0) {
-        return NextResponse.json({ success: false, error: 'Price invalid' }, { status: 422 })
-      }
-      updates.price = price
-    }
-
-    if (!Object.keys(updates).length) {
-      return NextResponse.json({ success: false, error: 'No changes' }, { status: 422 })
-    }
+  const { data: bodyData, response } = await parseJsonBody(req, productUpdateSchema)
+  if (response) return response
+  const updates: Partial<ProductUpdateInput & { updated_at?: unknown }> = { ...bodyData }
 
     updates.updated_at = admin.firestore.Timestamp.now()
 
@@ -52,9 +29,9 @@ export async function PATCH(
     }
 
     await ref.update(updates)
-    const data = { ...snap.data(), ...updates }
+  const merged = { ...snap.data(), ...updates }
 
-    return NextResponse.json({ success: true, data })
+  return NextResponse.json({ success: true, data: merged })
   } catch (err) {
     return handleError(err)
   }
@@ -62,15 +39,12 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
-
-    const idNum = Number(params.id)
+    await requirePermission('products','delete')
+    const { id } = await context.params
+    const idNum = Number(id)
     if (!Number.isInteger(idNum) || idNum < 1) {
       return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
     }

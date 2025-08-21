@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
+import { resolveTable } from '@/lib/tables/resolve-table'
 
 // GET /api/public/menu/:restaurantId/:tableId/categories
 export async function GET(
@@ -23,16 +24,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'RESTAURANT_NOT_FOUND' }, { status: 404 })
     }
 
-    // تحقق من وجود الطاولة
-    const tableSnap = await db.collection('tables').doc(String(tableIdNum)).get()
-    if (!tableSnap.exists) {
-      return NextResponse.json({ success: false, error: 'TABLE_NOT_FOUND' }, { status: 404 })
-    }
-
-    const tableData = tableSnap.data()!
-    if (tableData.account_id !== restaurantIdNum) {
-      return NextResponse.json({ success: false, error: 'MISMATCH' }, { status: 404 })
-    }
+  const resolved = await resolveTable(restaurantIdNum, tableIdNum)
+  if (!resolved) return NextResponse.json({ success: false, error: 'TABLE_NOT_FOUND' }, { status: 404 })
 
     // جلب كل التصنيفات الفعّالة (حتى لو لا توجد منتجات متاحة حاليا) لعرضها ثم إظهار المنتجات بحالتها (متوفر / غير متوفر)
     const catSnap = await db

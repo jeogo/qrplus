@@ -47,6 +47,12 @@ export function AdminHeader({ title, showBackButton = false, onBackClick, backTe
       systemOffline: "Système Hors Ligne",
       back: "Retour",
     },
+    en: {
+      dashboard: "Dashboard",
+      systemOnline: "System Online",
+      systemOffline: "System Offline",
+      back: "Back",
+    }
   }
 
   const currentLang = t[language]
@@ -123,14 +129,14 @@ export function AdminHeader({ title, showBackButton = false, onBackClick, backTe
 
 // Hook to use language state across components
 export function useAdminLanguage() {
-  const [language, setLanguage] = useState<"ar" | "fr">("ar")
+  const [language, setLanguage] = useState<"ar" | "fr" | "en">("ar")
   useEffect(() => {
     // Initialize from localStorage
-    const saved = localStorage.getItem("admin-language") as "ar" | "fr" | null
-    if (saved === "ar" || saved === "fr") setLanguage(saved)
+    const saved = localStorage.getItem("admin-language") as "ar" | "fr" | "en" | null
+    if (saved === "ar" || saved === "fr" || saved === 'en') setLanguage(saved)
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail
-      if (detail === "ar" || detail === "fr") setLanguage(detail)
+      if (detail === "ar" || detail === "fr" || detail === 'en') setLanguage(detail)
     }
     window.addEventListener("languageChange", handler)
     return () => window.removeEventListener("languageChange", handler)

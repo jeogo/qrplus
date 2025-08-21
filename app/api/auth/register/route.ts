@@ -3,18 +3,33 @@ import admin, { adminAuth } from '@/lib/firebase/admin'
 import { createToken } from '@/lib/auth/jwt'
 import bcrypt from 'bcryptjs'
 import { nextSequence } from '@/lib/firebase/sequences'
+import { registerSchema } from '@/schemas/auth'
+import { ZodError } from 'zod'
+import type { RegisterInput } from '@/schemas/auth'
 
 const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
 const SIGNUP_ENDPOINT = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const username = body.username
-    const restaurant_name = body.restaurant_name || body.restaurantName || body.name
-    const email = body.email
-    const password = body.password
-    const language = body.language
+    let parsed: RegisterInput
+    try {
+      const body = await req.json()
+      parsed = registerSchema.parse({
+        username: body.username,
+        restaurant_name: body.restaurant_name ?? body.restaurantName ?? body.name,
+        email: body.email,
+        password: body.password,
+        language: body.language,
+      })
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return NextResponse.json({ success: false, error: 'Validation failed', code: 'VALIDATION_ERROR' }, { status: 400 })
+      }
+      return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 })
+    }
+
+  const { username, restaurant_name, email, password, language } = parsed
 
     if (!username || !restaurant_name || !password) {
       return NextResponse.json({

@@ -1,22 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import bcrypt from 'bcryptjs'
+import { z } from 'zod'
+import { usernameSchema, passwordSchema } from '@/schemas/shared'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+const updateStaffSchema = z.object({
+  username: usernameSchema.optional(),
+  password: passwordSchema.optional(),
+  role: z.enum(['waiter','kitchen']).optional(),
+  permissions: z.object({
+    approve_orders: z.boolean().optional(),
+    serve_orders: z.boolean().optional(),
+    make_ready: z.boolean().optional(),
+  }).optional(),
+  active: z.boolean().optional(),
+})
+
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const sess = await requirePermission('users','update')
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    const idNum = Number(params.id)
+  const { id } = await context.params
+  const idNum = Number(id)
     if (!Number.isFinite(idNum)) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
 
-    const body = await req.json()
+    let body: z.infer<typeof updateStaffSchema>
+    try {
+      const raw = await req.json()
+      body = updateStaffSchema.parse(raw)
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ success: false, error: 'Validation failed', code: 'VALIDATION_ERROR' }, { status: 400 })
+      }
+      return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 })
+    }
+
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
     if (body.username !== undefined) {
-      const username = String(body.username || '').trim()
-      if (!username || username.length < 3) return NextResponse.json({ success: false, error: 'Invalid username' }, { status: 400 })
+      const username = body.username
       // uniqueness check
       const dupSnap = await admin.firestore().collection('staff_users')
         .where('account_id', '==', accountId)
@@ -29,10 +52,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       updates.username_lower = username.toLowerCase()
     }
 
-    if (body.password !== undefined && body.password) {
-      const password = String(body.password)
-      if (password.length < 6) return NextResponse.json({ success: false, error: 'Weak password' }, { status: 400 })
-      updates.password = await bcrypt.hash(password, 10)
+    if (body.password) {
+      updates.password = await bcrypt.hash(body.password, 10)
     }
 
     if (body.role !== undefined) {
@@ -91,12 +112,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const sess = await requirePermission('users','delete')
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
-    const idNum = Number(params.id)
+  const { id } = await context.params
+  const idNum = Number(id)
     if (!Number.isFinite(idNum)) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
 
     const snap = await admin.firestore().collection('staff_users')

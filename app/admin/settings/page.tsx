@@ -13,7 +13,7 @@ import { getAdminSettingsTexts } from "@/lib/i18n/admin-settings"
 import { SystemStatusCard } from './components/system-status-card'
 import { RestaurantInfoForm } from './components/restaurant-info-form'
 import { OfflineAlert } from './components/offline-alert'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { logout } from '@/lib/auth/session-client'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 
@@ -21,7 +21,7 @@ interface RestaurantSettings {
   id: number
   account_id: number
   restaurant_name: string
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   logo_url?: string | null
   currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'
   address?: string | null
@@ -124,13 +124,13 @@ export default function AdminSettingsPage() {
       if(!json.success) throw new Error(json.error)
       setSettings(s => s ? { ...s, system_active: json.data.system_active, updated_at: json.data.updated_at } : s)
       recordSystemActive(json.data.system_active)
-      action.success(checked ? 'تم تفعيل النظام' : 'تم إيقاف النظام', checked ? 'Système activé' : 'Système désactivé')
-      toast.success(checked ? (language==='ar'? 'تم التفعيل':'Activé') : (language==='ar'? 'تم الإيقاف':'Désactivé'))
+  action.success(checked ? L.systemOn : L.systemOff, checked ? L.systemOn : L.systemOff)
+  notify({ type:'settings.toggle.success' })
   } catch {
       // rollback
       setSettings(s => s ? { ...s, system_active: prev } : s)
-      action.error('فشل تحديث الحالة', 'Échec de la mise à jour')
-      toast.error(language==='ar'? 'فشل التحديث':'Échec de mise à jour')
+  action.error(L.errorSaving, L.errorSaving)
+  notify({ type:'settings.toggle.error' })
     } finally { setIsToggling(false) }
   }
 
@@ -140,7 +140,7 @@ export default function AdminSettingsPage() {
     action.start('جاري الحفظ...', 'Enregistrement...')
     const updatedSettings: Partial<RestaurantSettings> = {
       restaurant_name: formData.get('restaurant_name') as string,
-      language: formData.get('language') as 'ar' | 'fr',
+  language: formData.get('language') as 'ar' | 'fr' | 'en',
       currency: formData.get('currency') as 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD',
       address: (formData.get('address') as string) || null,
       phone: (formData.get('phone') as string) || null,
@@ -161,31 +161,31 @@ export default function AdminSettingsPage() {
         } catch {}
       }
       if (typeof json.data.system_active === 'boolean') recordSystemActive(json.data.system_active)
-      action.success('تم حفظ الإعدادات', 'Paramètres enregistrés')
-      toast.success(language==='ar'? 'تم الحفظ' : 'Enregistré')
+  action.success(L.settingsSaved, L.settingsSaved)
+  notify({ type:'settings.save.success' })
   } catch {
-      action.error('فشل حفظ الإعدادات', "Échec de l'enregistrement")
-      toast.error(language==='ar'? 'فشل الحفظ' : 'Échec')
+  action.error(L.errorSaving, L.errorSaving)
+  notify({ type:'settings.save.error' })
       // no rollback for simplicity unless needed
     } finally { setIsSaving(false) }
   }
 
   const handleLogoUpload = async (file: File) => {
-    if (!['image/png','image/jpeg','image/jpg','image/webp'].includes(file.type)) { toast.error(language==='ar'? 'نوع ملف غير صالح':'Type de fichier invalide'); return }
-    if (file.size > 5*1024*1024) { toast.error(language==='ar'? 'حجم كبير':'Fichier trop grand'); return }
+  if (!['image/png','image/jpeg','image/jpg','image/webp'].includes(file.type)) { notify({ type:'settings.logo.upload.error', override:{ message: L.invalidLogoType || 'Invalid file type' } }); return }
+  if (file.size > 5*1024*1024) { notify({ type:'settings.logo.upload.error', override:{ message: L.logoTooLarge || 'File too large' } }); return }
     setUploading(true)
-    action.start('جاري رفع الشعار...', 'Téléchargement du logo...')
+  action.start(L.uploading, L.uploading)
     try {
       const fd = new FormData(); fd.append('logo', file)
       const res = await fetch('/api/admin/settings/logo', { method:'POST', body: fd })
       const json = await res.json()
       if(!json.success) throw new Error(json.error)
       setSettings(s => s ? { ...s, logo_url: json.data.logo_url, updated_at: json.data.updated_at } : s)
-      action.success('تم رفع الشعار', 'Logo téléchargé')
-      toast.success(language==='ar'? 'تم رفع الشعار':'Logo mis à jour')
+  action.success(L.updateLogo, L.updateLogo)
+  notify({ type:'settings.logo.upload.success' })
   } catch {
-      action.error('فشل رفع الشعار', 'Échec du téléchargement')
-      toast.error(language==='ar'? 'فشل الرفع':'Échec upload')
+  action.error(L.errorSaving, L.errorSaving)
+  notify({ type:'settings.logo.upload.error' })
     } finally { setUploading(false) }
   }
 
@@ -228,10 +228,10 @@ export default function AdminSettingsPage() {
       const res = await fetch('/api/admin/maintenance/reset-daily-number',{ method:'POST', headers:{'Content-Type':'application/json'} })
       const json = await res.json()
       if(!json.success) throw new Error(json.error)
-      toast.success(language==='ar'? L.resetSuccess : L.resetSuccess)
+  notify({ type:'settings.resetDaily.success' })
       setResetOpen(false)
     } catch {
-      toast.error(language==='ar'? L.resetFailed : L.resetFailed)
+  notify({ type:'settings.resetDaily.error' })
     } finally { setResetLoading(false) }
   }
 
@@ -268,11 +268,11 @@ export default function AdminSettingsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={async ()=> { const ok = await logout(); if (ok) { toast.success(language==='ar'? 'تم تسجيل الخروج':'Déconnecté'); window.location.href='/auth' } else { toast.error(language==='ar'? 'فشل تسجيل الخروج':'Échec déconnexion') } }}
+                  onClick={async ()=> { const ok = await logout(); if (ok) { notify({ type:'logout.success' }); window.location.href='/auth' } else { notify({ type:'logout.error' }) } }}
                   className="flex items-center gap-2 border-slate-200 hover:bg-slate-50 text-red-600"
                 >
                   <LogOut className="h-4 w-4" />
-                  {language==='ar'? 'خروج':'Logout'}
+                  {L.cancel || 'Logout'}
                 </Button>
                 <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
                   <AlertDialogTrigger asChild>

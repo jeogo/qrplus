@@ -1,5 +1,5 @@
 // Shared translations for Admin Orders page (Arabic / French only)
-export type AdminLang = 'ar' | 'fr'
+export type AdminLang = 'ar' | 'fr' | 'en'
 
 interface OrdersTranslations {
   title: string
@@ -147,6 +147,48 @@ export const adminOrdersTexts: Record<AdminLang, OrdersTranslations> = {
   },
   viewModes: { cards: 'Cartes', list: 'Liste', compact: 'Compact' },
   itemsLabel: 'Articles'
+  },
+  en: {
+    title: 'Orders',
+    all: 'All',
+    notifications: 'Notifications',
+    browserNotifications: 'Browser Notifications',
+    audioNotifications: 'Audio Notifications',
+    grantPermission: 'Allow notifications',
+    permissionDenied: 'Notifications blocked in browser',
+    loading: 'Loading...',
+    noOrders: 'No orders',
+    order: 'Order',
+    table: 'Table',
+    delete: 'Delete',
+    close: 'Close',
+    total: 'Total',
+    settingsTitle: 'Notification Settings',
+    settingsDesc: 'Configure audio & browser notifications',
+    testAudio: 'Test audio',
+    orderDeleted: 'Order deleted',
+    orderDeleteFailed: 'Delete failed',
+    confirmDelete: 'Delete this order?',
+    volume: 'Volume',
+    refresh: 'Refresh',
+    customerNote: 'Customer note',
+    noItems: 'No items',
+    orderDetails: 'Order details',
+    createdAt: 'Created at',
+    updatedAt: 'Updated at',
+    manageOrders: 'Manage orders',
+    filterByStatus: 'Filter by status',
+    updateOrderProgress: 'Updating order...',
+    updateOrderSuccess: 'Updated',
+    actionFailed: 'Action failed',
+    archiveOrderProgress: 'Archiving...',
+    archiveOrderSuccess: 'Archived',
+    archiveOrderFailed: 'Archive failed',
+    statusUpdateFailed: 'Status update failed',
+    deleteOrderFailed: 'Delete failed',
+    status: { pending:'Pending', approved:'Approved', ready:'Ready', served:'Served' },
+    viewModes: { cards:'Cards', list:'List', compact:'Compact' },
+    itemsLabel: 'Items'
   }
 }
 

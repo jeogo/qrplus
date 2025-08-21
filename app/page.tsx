@@ -36,7 +36,7 @@ import { getLandingTexts } from "@/lib/i18n/landing"
 import { useRouter } from "next/navigation"
 
 export default function LandingPage() {
-  const [language, setLanguage] = useState<"ar" | "fr">("ar")
+  const [language, setLanguage] = useState<"ar" | "fr" | "en">("ar")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { user, loading: sessionLoading } = useSession()
@@ -46,7 +46,7 @@ export default function LandingPage() {
   useEffect(() => {
     setMounted(true)
     // Load saved language preference
-    const savedLang = localStorage.getItem("landing-language") as "ar" | "fr"
+  const savedLang = localStorage.getItem("landing-language") as "ar" | "fr" | "en"
     if (savedLang) {
       setLanguage(savedLang)
     }
@@ -62,12 +62,13 @@ export default function LandingPage() {
   }, [mounted, sessionLoading, user, router])
 
   const handleLanguageToggle = () => {
-    const newLang = language === "ar" ? "fr" : "ar"
+    // cycle ar -> fr -> en -> ar
+    const newLang = language === "ar" ? "fr" : language === "fr" ? "en" : "ar"
     setLanguage(newLang)
     localStorage.setItem("landing-language", newLang)
   }
 
-  const t = useMemo(()=> getLandingTexts(language), [language])
+  const t = useMemo(()=> getLandingTexts(language as any), [language])
 
   if (!mounted) return null
 
@@ -75,7 +76,7 @@ export default function LandingPage() {
   const features = ((): FeatureItem[] => {
     if (language === "ar") {
       return [
-        { icon: QrCode, title: "قوائم QR تفاعلية", description: "قائمة ثنائية اللغة تُحدّث فوراً بدون إعادة طباعة." },
+        { icon: QrCode, title: "قوائم QR تفاعلية", description: "قائمة ثلاثية اللغة تُحدّث فوراً بدون إعادة طباعة." },
         { icon: Smartphone, title: "طلبات فورية", description: "الزبون يرسل الطلب – يظهر مباشرة في واجهة المطبخ." },
         { icon: Bell, title: "إشعارات فورية", description: "تنبيهات للمطبخ، الويتر، والإدارة على نفس القناة." },
         { icon: Gauge, title: "تحليلات مباشرة", description: "مؤشرات المبيعات، متوسط التذكرة، والأطباق الأكثر طلباً." },
@@ -83,13 +84,23 @@ export default function LandingPage() {
         { icon: Cpu, title: "أداء سريع", description: "واجهة خفيفة محسّنة للأجهزة المحمولة والإنترنت الضعيف." },
       ]
     }
+    if (language === 'fr') {
+      return [
+        { icon: QrCode, title: "Menus QR interactifs", description: "Menu trilingue mis à jour instantanément sans réimpression." },
+        { icon: Smartphone, title: "Commandes en direct", description: "Le client envoie – la cuisine voit immédiatement." },
+        { icon: Bell, title: "Notifications instantanées", description: "Cuisine, serveur et manager synchronisés." },
+        { icon: Gauge, title: "Analytique en temps réel", description: "Ventes, ticket moyen et plats populaires." },
+        { icon: Settings, title: "Contrôle granulaire", description: "Activez / désactivez le système ou un produit en un clic." },
+        { icon: Cpu, title: "Performance élevée", description: "Interface optimisée mobile & réseaux lents." },
+      ]
+    }
     return [
-      { icon: QrCode, title: "Menus QR interactifs", description: "Menu bilingue mis à jour instantanément sans réimpression." },
-      { icon: Smartphone, title: "Commandes en direct", description: "Le client envoie – la cuisine voit immédiatement." },
-      { icon: Bell, title: "Notifications instantanées", description: "Cuisine, serveur et manager synchronisés." },
-      { icon: Gauge, title: "Analytique en temps réel", description: "Ventes, ticket moyen et plats populaires." },
-      { icon: Settings, title: "Contrôle granulaire", description: "Activez / désactivez le système ou un produit en un clic." },
-      { icon: Cpu, title: "Performance élevée", description: "Interface optimisée mobile & réseaux lents." },
+      { icon: QrCode, title: "Interactive QR Menus", description: "Tri-lingual menu updated instantly with no reprint." },
+      { icon: Smartphone, title: "Instant Ordering", description: "Guest sends order – kitchen sees it immediately." },
+      { icon: Bell, title: "Real-time Notifications", description: "Kitchen, waiter and management stay in sync." },
+      { icon: Gauge, title: "Live Analytics", description: "Sales KPIs, average ticket & popular dishes." },
+      { icon: Settings, title: "Granular Control", description: "Enable/disable system, product or category with a click." },
+      { icon: Cpu, title: "Fast Performance", description: "Lightweight UI tuned for mobile & poor networks." },
     ]
   })()
 
@@ -118,7 +129,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleLanguageToggle} className="text-xs font-medium">
-              <Globe className="h-4 w-4" /> {language === "ar" ? "FR" : "AR"}
+              <Globe className="h-4 w-4" /> {language === "ar" ? "FR" : language === "fr" ? "EN" : "AR"}
             </Button>
             {!user && (
               <Link href="/auth" className="hidden md:inline-block">

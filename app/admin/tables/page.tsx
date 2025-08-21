@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, RefreshCw, Loader2, QrCode } from "lucide-react"
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { SectionHeader } from '@/components/admin/section-header'
 import QRCode from "qrcode"
 import { TableCard } from './components/table-card'
@@ -111,7 +111,7 @@ export default function TablesAdminPage() {
       if (!json.success) {
         console.log('Admin: Error adding table', json.error)
         if (json.error === 'TABLE_NUMBER_EXISTS') {
-          setErrorMessage(language==='ar' ? 'رقم الطاولة مستخدم بالفعل' : 'Numéro de table déjà utilisé')
+          setErrorMessage(L.invalidNumber)
         } else {
           setErrorMessage(L.operationFailed)
         }
@@ -121,7 +121,7 @@ export default function TablesAdminPage() {
       setIsDialogOpen(false)
       await fetchTables()
       console.log('Admin: Table added successfully')
-      toast.success(language==='ar' ? 'تم إضافة الطاولة بنجاح' : 'Table ajoutée avec succès')
+  notify({ type:'tables.create.success' })
     } catch (error: unknown) {
       console.error('Error adding table:', error)
       console.log('Admin: Error adding table', getErrMsg(error))
@@ -144,7 +144,7 @@ export default function TablesAdminPage() {
       if (!json.success) {
         console.log('Admin: Error editing table', json.error)
         if (json.error === 'TABLE_NUMBER_EXISTS') {
-          setErrorMessage(language==='ar' ? 'رقم الطاولة مستخدم بالفعل' : 'Numéro de table déjà utilisé')
+          setErrorMessage(L.invalidNumber)
         } else {
           setErrorMessage(L.operationFailed)
         }
@@ -154,7 +154,7 @@ export default function TablesAdminPage() {
       setTableNumberInput('')
       setIsDialogOpen(false)
       await fetchTables()
-      toast.success(language==='ar' ? 'تم تحديث الطاولة بنجاح' : 'Table mise à jour avec succès')
+  notify({ type:'tables.update.success' })
     } catch (error: unknown) {
       console.error('Error updating table:', error)
       console.log('Admin: Error updating table', getErrMsg(error))
@@ -178,7 +178,7 @@ export default function TablesAdminPage() {
       }
       await fetchTables()
       console.log('Admin: Table deleted successfully')
-  toast.success(language==='ar' ? 'تم حذف الطاولة بنجاح' : 'Table supprimée avec succès')
+  notify({ type:'tables.delete.success' })
     } catch (error: unknown) {
       console.error('Error deleting table:', error)
       console.log('Admin: Error deleting table', getErrMsg(error))
@@ -251,11 +251,11 @@ export default function TablesAdminPage() {
                     variant="outline"
                     size="sm"
                     disabled={refreshing}
-                    onClick={()=>{ if(refreshing) return; setRefreshing(true); fetchTables().finally(()=>{ setRefreshing(false); toast.success(language==='ar'? 'تم التحديث':'Actualisé') }) }}
+                    onClick={()=>{ if(refreshing) return; setRefreshing(true); fetchTables().finally(()=>{ setRefreshing(false); notify({ type:'tables.refresh.success' }) }) }}
                     className="border-slate-200 hover:bg-slate-50"
                   >
                     {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    <span className="ml-2">{L.refresh || (language==='ar'? 'تحديث':'Actualiser')}</span>
+                    <span className="ml-2">{L.refresh}</span>
                   </Button>
                   <Button
                     size="sm"

@@ -6,7 +6,7 @@ import { listenForegroundMessages } from '@/lib/firebase/messaging'
 
 export function PushBootstrap() {
   const { user } = useSession()
-  const { permission, requestPermission, registerToken, token } = usePushPermissions({ autoRegister: false, role: user?.role || null, lang: (typeof window !== 'undefined' ? (localStorage.getItem('admin-language') as 'ar'|'fr'|null) : null) || 'ar' })
+  const { permission, requestPermission, registerToken, token } = usePushPermissions({ autoRegister: false, role: user?.role || null, lang: (typeof window !== 'undefined' ? (localStorage.getItem('admin-language') as 'ar'|'fr'|'en'|null) : null) || 'ar' })
 
   useEffect(() => {
     if (!user) return

@@ -47,7 +47,7 @@ export default function AuthPage() {
   }
 
   const handleLanguageToggle = () => {
-    const newLang: AuthLang = language === "ar" ? "fr" : "ar"
+    const newLang: AuthLang = language === "ar" ? "fr" : language === 'fr' ? 'en' : 'ar'
     setLanguage(newLang)
     localStorage.setItem("admin-language", newLang)
   }
@@ -66,7 +66,7 @@ export default function AuthPage() {
           <span className="font-semibold text-sm tracking-tight text-foreground">{currentLang.systemName}</span>
         </div>
         <Button variant="outline" size="sm" onClick={handleLanguageToggle} className="text-xs gap-1">
-          <Globe className="h-4 w-4" /> {language==='ar'?'FR':'AR'}
+          <Globe className="h-4 w-4" /> {language==='ar'?'FR': language==='fr' ? 'EN':'AR'}
         </Button>
       </header>
       <main className="flex-1 flex items-center justify-center px-4 py-10">

@@ -5,7 +5,7 @@ import { CheckCircle } from 'lucide-react'
 
 interface Props {
   orders: OrderCardOrder[]
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   viewMode: 'cards' | 'list'
   t: Record<string,string>
   formatTimeAgo: (iso:string)=>string
@@ -22,7 +22,7 @@ export function OrdersList({ orders, language, viewMode, t, formatTimeAgo, onSer
             <CheckCircle className="h-8 w-8 text-slate-500" />
           </div>
           <h3 className="text-xl font-semibold mb-3 text-slate-800">{t.noOrders}</h3>
-          <p className="text-slate-500">{language==='ar'? 'جميع الطلبات تم تقديمها أو لا توجد طلبات جاهزة':'All orders served or no orders ready'}</p>
+          <p className="text-slate-500">{t.noOrdersDesc}</p>
         </CardContent>
       </Card>
     )

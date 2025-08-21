@@ -4,7 +4,7 @@ import { OrdersQuickActions } from '@/components/orders-quick-actions'
 import { useEffect } from 'react'
 
 interface Props {
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   count: number
   soundEnabled: boolean
   onToggleSound: () => void
@@ -31,7 +31,9 @@ export function StatsHeader({ language, count, soundEnabled, onToggleSound, onRe
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex rounded-md overflow-hidden border border-slate-200 bg-white">
               {(['cards','list'] as const).map(m=> (
-                <button key={m} aria-label={m} onClick={()=> onChangeView(m)} className={"h-8 px-3 text-sm font-medium transition " + (viewMode===m? 'bg-blue-600 text-white':'text-slate-600 hover:text-slate-800')}>{language==='ar'? (m==='cards'? 'بطاقات':'قائمة') : (m==='cards'? 'Cartes':'Liste')}</button>
+                <button key={m} aria-label={m} onClick={()=> onChangeView(m)} className={"h-8 px-3 text-sm font-medium transition " + (viewMode===m? 'bg-blue-600 text-white':'text-slate-600 hover:text-slate-800')}>
+                  {language==='ar'? (m==='cards'? 'بطاقات':'قائمة') : language==='fr'? (m==='cards'? 'Cartes':'Liste') : (m==='cards'? 'Cards':'List')}
+                </button>
               ))}
             </div>
             <OrdersQuickActions

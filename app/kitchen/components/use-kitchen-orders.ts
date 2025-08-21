@@ -1,6 +1,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import type { KitchenOrder, OrderStatus } from './order-card'
 
 interface ApiOrder { id:number; table_id:number; status:OrderStatus; updated_at:string; total:number; note?:string; daily_number?:number }
@@ -12,7 +12,9 @@ interface KitchenOrderWithItems extends KitchenOrder { items?:ApiOrderItem[] }
 
 interface UseKitchenOrdersOptions { t:Record<string,string>; soundEnabled:boolean }
 
-export function useKitchenOrders({ t, soundEnabled }:UseKitchenOrdersOptions){
+// t and soundEnabled kept for future i18n & audio feedback expansion
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useKitchenOrders({ t: _t, soundEnabled: _soundEnabled }:UseKitchenOrdersOptions){
   const [orders,setOrders] = useState<KitchenOrderWithItems[]>([])
   // loading covers BOTH base orders + their items ("load all then show")
   const [loading,setLoading] = useState(true)
@@ -61,33 +63,29 @@ export function useKitchenOrders({ t, soundEnabled }:UseKitchenOrdersOptions){
     try {
       const res = await fetch(`/api/orders/${id}/ready`,{ method:'POST' })
       if(!res.ok) throw new Error('fail')
-      if(soundEnabled){
-        const audio = new Audio('/notification.wav'); audio.play().catch(()=>{})
-      }
-      toast.success(t.markedReadySuccess)
+      notify({ type:'kitchen.order.markReady.success' })
       return true
-  } catch {
+	} catch {
       setOrders(prev)
-      toast.error(t.markedReadyFail)
+      notify({ type:'kitchen.order.markReady.error' })
       return false
     }
-  },[orders,soundEnabled,t])
+  },[orders]) // soundEnabled & t excluded: do not alter logic; notify keys static
 
   const cancel = useCallback(async(id:number)=>{
     const prev = orders
     setOrders(o=>o.filter(ord=>ord.id!==id))
     try {
-      // Use PATCH transition approved -> (simulate cancel) by deleting pending isn't allowed; here we treat cancel as deleting approved? If business rule only allows cancelling approved, could move to dedicated endpoint later.
       const res = await fetch(`/api/orders/${id}`,{ method:'PATCH', body: JSON.stringify({ status:'cancelled' }) })
       if(!res.ok) throw new Error('fail')
-      toast.success(t.cancelledSuccess)
+      notify({ type:'kitchen.order.cancel.success' })
       return true
     } catch {
       setOrders(prev)
-      toast.error(t.cancelledFail)
+      notify({ type:'kitchen.order.cancel.error' })
       return false
     }
-  },[orders,t])
+  },[orders]) // t excluded: notify keys static
 
   // bulkReady removed per request
 

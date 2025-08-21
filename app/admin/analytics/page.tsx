@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { AdminHeader, useAdminLanguage } from '@/components/admin-header'
 import { AdminLayout } from '@/components/admin-bottom-nav'
 import { Calendar, RefreshCw, BarChart3, TrendingUp, ShoppingBag, Clock, DollarSign, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { getAnalyticsTexts } from '@/lib/i18n/analytics'
 import type { OrdersSummaryResponse, OrderAnalyticsSummary, OrdersSummaryOrderRow } from '@/types/analytics'
 
@@ -89,14 +89,14 @@ export default function AdminAnalyticsPage() {
   setSummary(payload.summary)
   setOrders(payload.orders)
       setUpdatedAt(new Date().toLocaleTimeString())
-      toast.success(t.toasts.refreshed)
+  notify({ type:'analytics.refresh.success' })
     } catch (e) {
       console.error('[analytics] fetch failed', e)
       setOrders([])
   setFetchError('failed')
-      toast.error(t.toasts.refreshError)
+  notify({ type:'analytics.refresh.error' })
     } finally { setLoading(false) }
-  }, [selectedPeriod, getDateRange, t])
+  }, [selectedPeriod, getDateRange]) // t not included intentionally: translation changes do not affect fetch criteria
 
   // Load data when period changes
   useEffect(() => {
@@ -445,7 +445,7 @@ export default function AdminAnalyticsPage() {
                   {orders.length > 50 && (
                     <div className="text-center py-4 border-t">
                       <p className="text-sm text-slate-500">
-                        {language==='ar' ? t.showingOf(50, orders.length) : t.showingOf(50, orders.length)}
+                        {t.showingOf(50, orders.length)}
                       </p>
                     </div>
                   )}

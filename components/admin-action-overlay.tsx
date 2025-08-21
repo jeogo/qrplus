@@ -4,11 +4,11 @@ import { useEffect } from "react"
 
 export type ActionState =
   | { status: 'idle' }
-  | { status: 'processing'; messageAr: string; messageFr: string }
-  | { status: 'success'; messageAr: string; messageFr: string }
-  | { status: 'error'; messageAr: string; messageFr: string }
+  | { status: 'processing'; messageAr: string; messageFr: string; messageEn?: string }
+  | { status: 'success'; messageAr: string; messageFr: string; messageEn?: string }
+  | { status: 'error'; messageAr: string; messageFr: string; messageEn?: string }
 
-export function AdminActionOverlay({ state, language, onClear, autoHideMs = 1400 }: { state: ActionState; language: 'ar' | 'fr'; onClear: () => void; autoHideMs?: number }) {
+export function AdminActionOverlay({ state, language, onClear, autoHideMs = 1400 }: { state: ActionState; language: 'ar' | 'fr' | 'en'; onClear: () => void; autoHideMs?: number }) {
   useEffect(() => {
     if (state.status === 'success' || state.status === 'error') {
       const t = setTimeout(onClear, autoHideMs)
@@ -19,11 +19,12 @@ export function AdminActionOverlay({ state, language, onClear, autoHideMs = 1400
   if (state.status === 'idle') return null
 
   const isAr = language === 'ar'
+  const isEn = language === 'en'
   const common = 'fixed inset-0 z-[70] flex items-center justify-center'
   const backdrop = 'backdrop-blur-sm bg-background/40'
   const box = 'w-full max-w-xs rounded-lg shadow-lg border border-border bg-card px-5 py-6 flex flex-col items-center gap-3 text-center'
 
-  const msg = isAr ? state.messageAr : state.messageFr
+  const msg = isAr ? state.messageAr : (isEn ? (state.messageEn || state.messageFr) : state.messageFr)
 
   return (
     <div className={common + ' ' + backdrop}>

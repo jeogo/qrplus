@@ -14,7 +14,7 @@ export interface BasicOrder {
 interface SendResultSummary {
   totalMessages: number
   totalTokens: number
-  languageRoleBatches: Array<{ lang: 'ar'|'fr'; role: string; tokens: number; success: number; failure: number }>
+  languageRoleBatches: Array<{ lang: 'ar'|'fr'|'en'; role: string; tokens: number; success: number; failure: number }>
 }
 
 const MAX_TOKENS_PER_BATCH = 500
@@ -28,37 +28,37 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 type PushKind = 'order.new'|'order.approved'|'order.ready'|'order.served'|'order.cancelled'
 
-function buildTexts(kind: PushKind, lang: 'ar'|'fr', order: BasicOrder) {
+function buildTexts(kind: PushKind, lang: 'ar'|'fr'|'en', order: BasicOrder) {
   const num = order.daily_number ?? order.id
   const table = order.table_id
   switch (kind) {
     case 'order.new':
-      return lang === 'ar'
-        ? { title: `طلب جديد #${num}`, body: table ? `طاولة ${table}` : '' }
-        : { title: `Nouvelle commande #${num}`, body: table ? `Table ${table}` : '' }
+  if (lang === 'ar') return { title: `طلب جديد #${num}`, body: table ? `طاولة ${table}` : '' }
+  if (lang === 'fr') return { title: `Nouvelle commande #${num}`, body: table ? `Table ${table}` : '' }
+  return { title: `New order #${num}`, body: table ? `Table ${table}` : '' }
     case 'order.approved':
-      return lang === 'ar'
-        ? { title: `تم اعتماد الطلب #${num}`, body: table ? `طاولة ${table}` : '' }
-        : { title: `Commande approuvée #${num}`, body: table ? `Table ${table}` : '' }
+  if (lang === 'ar') return { title: `تم اعتماد الطلب #${num}`, body: table ? `طاولة ${table}` : '' }
+  if (lang === 'fr') return { title: `Commande approuvée #${num}`, body: table ? `Table ${table}` : '' }
+  return { title: `Order approved #${num}`, body: table ? `Table ${table}` : '' }
     case 'order.ready':
-      return lang === 'ar'
-        ? { title: `الطلب جاهز #${num}`, body: table ? `طاولة ${table}` : '' }
-        : { title: `Commande prête #${num}`, body: table ? `Table ${table}` : '' }
+  if (lang === 'ar') return { title: `الطلب جاهز #${num}`, body: table ? `طاولة ${table}` : '' }
+  if (lang === 'fr') return { title: `Commande prête #${num}`, body: table ? `Table ${table}` : '' }
+  return { title: `Order ready #${num}`, body: table ? `Table ${table}` : '' }
     case 'order.served':
-      return lang === 'ar'
-        ? { title: `تم تقديم الطلب #${num}`, body: table ? `طاولة ${table}` : '' }
-        : { title: `Commande servie #${num}`, body: table ? `Table ${table}` : '' }
+  if (lang === 'ar') return { title: `تم تقديم الطلب #${num}`, body: table ? `طاولة ${table}` : '' }
+  if (lang === 'fr') return { title: `Commande servie #${num}`, body: table ? `Table ${table}` : '' }
+  return { title: `Order served #${num}`, body: table ? `Table ${table}` : '' }
     case 'order.cancelled':
-      return lang === 'ar'
-        ? { title: `تم إلغاء الطلب #${num}` , body: table ? `طاولة ${table}` : '' }
-        : { title: `Commande annulée #${num}`, body: table ? `Table ${table}` : '' }
+  if (lang === 'ar') return { title: `تم إلغاء الطلب #${num}` , body: table ? `طاولة ${table}` : '' }
+  if (lang === 'fr') return { title: `Commande annulée #${num}`, body: table ? `Table ${table}` : '' }
+  return { title: `Order cancelled #${num}`, body: table ? `Table ${table}` : '' }
   }
 }
 
 async function fetchActiveTokens(roles: string[], order?: BasicOrder) {
   const db = admin.firestore()
   const snap = await db.collection('device_tokens').where('active','==',true).get()
-  const records: Array<{ token:string; lang:'ar'|'fr'; role:string }> = []
+  const records: Array<{ token:string; lang:'ar'|'fr'|'en'; role:string }> = []
   snap.forEach(d => {
     const raw = d.data() as unknown
     if (!raw || typeof raw !== 'object') return
@@ -75,7 +75,7 @@ async function fetchActiveTokens(roles: string[], order?: BasicOrder) {
     if (typeof token !== 'string' || !token) return
     if (typeof role !== 'string') return
     if (!roles.includes(role)) return
-    const lang: 'ar'|'fr' = langRaw === 'ar' ? 'ar' : 'fr'
+  const lang: 'ar'|'fr'|'en' = langRaw === 'ar' ? 'ar' : (langRaw === 'fr' ? 'fr' : 'en')
     records.push({ token, lang, role })
   })
   return records
@@ -87,9 +87,9 @@ async function sendBatches(kind: PushKind, order: BasicOrder, roles: string[]): 
   try { messaging = admin.messaging() } catch { return null }
   const all = await fetchActiveTokens(roles, order)
   if (!all.length) return { totalMessages: 0, totalTokens: 0, languageRoleBatches: [] }
-  const groups: Record<string, { lang:'ar'|'fr'; role:string; tokens:string[] }> = {}
+  const groups: Record<string, { lang:'ar'|'fr'|'en'; role:string; tokens:string[] }> = {}
   for (const rec of all) {
-    const key = rec.lang + '|' + rec.role
+  const key = rec.lang + '|' + rec.role
     if (!groups[key]) groups[key] = { lang: rec.lang, role: rec.role, tokens: [] }
     groups[key].tokens.push(rec.token)
   }
@@ -98,14 +98,14 @@ async function sendBatches(kind: PushKind, order: BasicOrder, roles: string[]): 
     let texts = buildTexts(kind, g.lang, order)
     // If future 'client' role tokens exist, hide raw order number for privacy.
     if (g.role === 'client') {
-      const generic = ((): { title:string; body:string } => {
+    const generic = ((): { title:string; body:string } => {
         const table = order.table_id
         switch (kind) {
-          case 'order.new': return g.lang==='ar'? { title: 'تم استلام طلبك', body: table? `طاولة ${table}`:'' } : { title: 'Commande reçue', body: table? `Table ${table}`:'' }
-          case 'order.approved': return g.lang==='ar'? { title: 'طلبك قيد التحضير', body: table? `طاولة ${table}`:'' } : { title: 'Votre commande est en préparation', body: table? `Table ${table}`:'' }
-          case 'order.ready': return g.lang==='ar'? { title: 'طلبك جاهز', body: table? `طاولة ${table}`:'' } : { title: 'Votre commande est prête', body: table? `Table ${table}`:'' }
-          case 'order.served': return g.lang==='ar'? { title: 'تم تقديم طلبك', body: '' } : { title: 'Votre commande a été servie', body: '' }
-          case 'order.cancelled': return g.lang==='ar'? { title: 'تم إلغاء الطلب', body: '' } : { title: 'Commande annulée', body: '' }
+      case 'order.new': return g.lang==='ar'? { title: 'تم استلام طلبك', body: table? `طاولة ${table}`:'' } : g.lang==='fr'? { title: 'Commande reçue', body: table? `Table ${table}`:'' } : { title: 'Order received', body: table? `Table ${table}`:'' }
+      case 'order.approved': return g.lang==='ar'? { title: 'طلبك قيد التحضير', body: table? `طاولة ${table}`:'' } : g.lang==='fr'? { title: 'Votre commande est en préparation', body: table? `Table ${table}`:'' } : { title: 'Your order is being prepared', body: table? `Table ${table}`:'' }
+      case 'order.ready': return g.lang==='ar'? { title: 'طلبك جاهز', body: table? `طاولة ${table}`:'' } : g.lang==='fr'? { title: 'Votre commande est prête', body: table? `Table ${table}`:'' } : { title: 'Your order is ready', body: table? `Table ${table}`:'' }
+      case 'order.served': return g.lang==='ar'? { title: 'تم تقديم طلبك', body: '' } : g.lang==='fr'? { title: 'Votre commande a été servie', body: '' } : { title: 'Your order has been served', body: '' }
+      case 'order.cancelled': return g.lang==='ar'? { title: 'تم إلغاء الطلب', body: '' } : g.lang==='fr'? { title: 'Commande annulée', body: '' } : { title: 'Order cancelled', body: '' }
         }
       })()
       texts = generic

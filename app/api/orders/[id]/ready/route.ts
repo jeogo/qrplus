@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import admin from '@/lib/firebase/admin'
 import { validateTransition } from '@/lib/order-status'
 import { mirrorOrderUpdate } from '@/lib/mirror'
@@ -8,10 +8,7 @@ import { sendOrderReadyPush } from '@/lib/notifications/push-sender'
 // POST /api/orders/:id/ready  (kitchen/admin) transition approved -> ready
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const sess = await requireSession()
-    if (!['admin','kitchen'].includes(sess.role)) {
-      return NextResponse.json({ success:false, error:'Forbidden' }, { status:403 })
-    }
+  const sess = await requirePermission('orders.ready','special')
     const { id } = await context.params
     const idNum = Number(id)
     if (!Number.isInteger(idNum)) return NextResponse.json({ success:false, error:'ORDER_NOT_FOUND' }, { status:404 })

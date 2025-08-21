@@ -13,7 +13,7 @@ interface CartDialogProps {
 	onOpenChange: (v:boolean)=>void
 	cart: CartItem[]
 	t: PublicMenuTexts
-	language: 'ar'|'fr'
+	language: 'ar'|'fr'|'en'
 	currency: string
 	cartCount: number
 	cartTotal: number

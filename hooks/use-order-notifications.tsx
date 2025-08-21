@@ -1,10 +1,9 @@
 "use client"
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { useSession } from '@/hooks/use-session'
 import { useOrdersStream } from '@/hooks/use-orders-stream'
-import { loadNotificationPrefs } from '@/lib/notifications/state'
-import { notificationTexts, getLang } from '@/lib/notifications/i18n'
+import { loadUnifiedPrefs } from '@/lib/notifications/preferences'
 
 interface LiveOrder { id:number; table_id:number; status:string; total:number; created_at:string; updated_at:string; daily_number?:number }
 
@@ -30,14 +29,14 @@ export function useOrderNotifications() {
   const { user } = useSession()
   const ordersRef = useRef<Record<number, LiveOrder>>({})
   const lastShownRef = useRef<Map<string, number>>(new Map())
-  const prefsRef = useRef(loadNotificationPrefs())
+  const prefsRef = useRef(loadUnifiedPrefs())
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioUnlocked, setAudioUnlocked] = useState(false)
   const bcRef = useRef<BroadcastChannel | null>(null)
   // Lazy init audio (only after user authenticated)
   useEffect(()=>{
     if (!user) return
-    if (!prefsRef.current.enableSound) return
+  if (!prefsRef.current.sound.enabled) return
     if (!audioRef.current) {
       try { audioRef.current = new Audio('/notification.wav') } catch {}
     }
@@ -85,7 +84,7 @@ export function useOrderNotifications() {
   // Refresh prefs on focus (only relevant when logged in)
   useEffect(()=>{
     if (!user) return
-    const handler = () => { prefsRef.current = loadNotificationPrefs() }
+  const handler = () => { prefsRef.current = loadUnifiedPrefs() }
     window.addEventListener('focus', handler)
     return ()=> window.removeEventListener('focus', handler)
   },[user])
@@ -93,29 +92,29 @@ export function useOrderNotifications() {
   const hasUser = !!user
   const stream = useOrdersStream({
     sessionReady: hasUser,
-    onEvent: (type, payload) => {
+  onEvent: (evtType, evtPayload) => {
       if (!user) return
-      if (!prefsRef.current.enableToasts) return
-      const role = user.role as 'admin'|'kitchen'|'waiter'|string
-      const lang = getLang()
+  if (!prefsRef.current.ui.enableToasts) return
+  const role = user.role as 'admin'|'kitchen'|'waiter'|string
 
-      if (typeof payload !== 'object' || payload === null) return
-      const data = payload as Partial<LiveOrder> & { id?:number }
+  if (typeof evtPayload !== 'object' || evtPayload === null) return
+  const data = evtPayload as Partial<LiveOrder> & { id?:number }
       if (typeof data.id !== 'number') return
 
       const existing = ordersRef.current[data.id]
       const merged: LiveOrder = { ...(existing||{} as LiveOrder), ...(data as LiveOrder) }
       ordersRef.current[data.id] = merged
 
-      const kind = classifyEvent(type as EventType, merged, existing)
+  const kind = classifyEvent(evtType as EventType, merged, existing)
       if (!kind) return
 
       const now = Date.now()
       const key = `${data.id}:${kind}`
       const last = lastShownRef.current.get(key) || 0
-      if (now - last < prefsRef.current.dedupeMs) return
+  const dedupeWin = kind==='new'? prefsRef.current.dedupe.windowDomainMs : prefsRef.current.dedupe.windowDomainMs
+  if (now - last < dedupeWin) return
 
-      const p = prefsRef.current.roles
+  const p = prefsRef.current.roles
       let allowed = false
       if (role === 'kitchen') {
         if (kind === 'new' && p.kitchen.newOrder) allowed = true
@@ -139,19 +138,19 @@ export function useOrderNotifications() {
       lastShownRef.current.set(key, now)
 
       // Build message
-      let message = ''
       const num = merged.daily_number ?? merged.id
-  if (kind === 'new') message = notificationTexts.newOrder[lang](num, merged.table_id)
-  else if (kind === 'approved') message = notificationTexts.orderApproved[lang](num, merged.table_id)
-  else if (kind === 'ready') message = notificationTexts.orderReady[lang](num, merged.table_id)
-  else if (kind === 'served') message = notificationTexts.orderServed[lang](num)
-  else if (kind === 'cancelled') message = notificationTexts.orderCancelled[lang](num, merged.table_id)
+  const notifData = { num, table: merged.table_id }
+  const notifType = kind === 'new'? 'order.new'
+        : kind === 'approved'? 'order.approved'
+        : kind === 'ready'? 'order.ready'
+        : kind === 'served'? 'order.served'
+        : 'order.cancelled'
 
-  // Broadcast to SW for dedupe (avoid system notification if push arrives soon)
+      // Broadcast to SW for dedupe (avoid system notification if push arrives soon)
   try { bcRef.current?.postMessage({ key, ts: now }) } catch {}
 
   // Play sound if enabled and unlocked
-  if (prefsRef.current.enableSound && audioRef.current && audioUnlocked) {
+  if (prefsRef.current.sound.enabled && audioRef.current && audioUnlocked) {
         try {
           // Reset for rapid successive events
           audioRef.current.currentTime = 0
@@ -159,11 +158,7 @@ export function useOrderNotifications() {
         } catch {}
       }
 
-      toast(message, {
-        duration: 5000,
-        // Basic styling hint; sonner classes already themed
-        className: kind === 'ready' ? 'border-green-500' : kind === 'new' ? 'border-blue-500' : 'border-gray-400'
-      })
+  notify({ type: notifType as any, data: notifData, dedupeKey: `${notifType}:${num}` })
     }
   })
 

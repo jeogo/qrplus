@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import bcrypt from 'bcryptjs'
 import { nextSequence } from '@/lib/firebase/sequences'
+import { z } from 'zod'
+import { usernameSchema, passwordSchema } from '@/schemas/shared'
 
 interface StaffUser {
   id: number
@@ -57,8 +59,7 @@ function sanitize(u: RawUserDoc): StaffUser {
 // GET /api/admin/staff_users - List all staff for current account
 export async function GET() {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const sess = await requirePermission('users','read')
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
@@ -73,22 +74,37 @@ export async function GET() {
 }
 
 // POST /api/admin/staff_users - Add a new staff user
+const createStaffSchema = z.object({
+  username: usernameSchema,
+  password: passwordSchema,
+  role: z.enum(['waiter','kitchen']).default('waiter'),
+  permissions: z.object({
+    approve_orders: z.boolean().optional(),
+    serve_orders: z.boolean().optional(),
+    make_ready: z.boolean().optional(),
+  }).optional(),
+})
+
 export async function POST(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const sess = await requirePermission('users','create')
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
 
-    const body = await req.json()
-    const username = String(body.username || '').trim()
-    const password = String(body.password || '')
-    const role: 'waiter' | 'kitchen' = body.role === 'kitchen' ? 'kitchen' : 'waiter'
-    const perms = body.permissions || {}
+    let parsed: z.infer<typeof createStaffSchema>
+    try {
+      const body = await req.json()
+      parsed = createStaffSchema.parse(body)
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ success: false, error: 'Validation failed', code: 'VALIDATION_ERROR' }, { status: 400 })
+      }
+      return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 })
+    }
 
-    if (!username || username.length < 3) return NextResponse.json({ success: false, error: 'Invalid username' }, { status: 400 })
-    if (password.length < 6) return NextResponse.json({ success: false, error: 'Weak password' }, { status: 400 })
+    const { username, password, role } = parsed
+    const perms = parsed.permissions || {}
 
     // Check for duplicate username within the account
     const dupSnap = await admin.firestore()
@@ -101,7 +117,7 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString()
     const id = await nextSequence('staff_users')
-    const passwordHash = await bcrypt.hash(password, 10)
+  const passwordHash = await bcrypt.hash(password, 10)
 
     const doc: RawUserDoc & { password: string } = {
       id,

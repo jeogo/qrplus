@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
 
 // GET /api/public/orders/:id - get order details for public client
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const orderId = Number(params.id)
+  const { id } = await context.params
+  const orderId = Number(id)
 
     // التحقق من صحة رقم الطلب
     if (!Number.isInteger(orderId) || orderId <= 0) {

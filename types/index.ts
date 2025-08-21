@@ -32,7 +32,7 @@ export type SystemSetting = {
   id: number;
   account_id: number;
   logo_url: string;
-  language: "ar" | "fr";
+  language: "ar" | "fr" | "en";
   currency: "USD" | "EUR" | "MAD" | "TND" | "DZD";
   tax: number;
   created_at: string;

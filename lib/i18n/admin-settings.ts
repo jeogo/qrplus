@@ -49,6 +49,8 @@ export const adminSettingsTexts = {
   , cancel: "إلغاء"
   , resetSuccess: "تمت إعادة الترقيم"
   , resetFailed: "فشل في إعادة الترقيم"
+  , invalidLogoType: "نوع ملف غير صالح"
+  , logoTooLarge: "حجم الملف كبير"
   },
   fr: {
     title: "Paramètres Système",
@@ -99,9 +101,61 @@ export const adminSettingsTexts = {
   , cancel: "Annuler"
   , resetSuccess: "Compteur réinitialisé"
   , resetFailed: "Échec de la réinitialisation"
+  , invalidLogoType: "Type de fichier invalide"
+  , logoTooLarge: "Fichier trop grand"
+  },
+  en: {
+    title: "System Settings",
+    description: "Manage restaurant info and system state",
+    restaurantInfo: "Restaurant info",
+    systemStatus: "System status",
+    systemOn: "Active",
+    systemOff: "Inactive",
+    toggleSystem: "Toggle system",
+    restaurantName: "Restaurant name",
+    language: "Language",
+    logo: "Logo",
+    currency: "Currency",
+    taxRate: "Tax rate",
+    address: "Address",
+    phone: "Phone",
+    email: "Email",
+    save: "Save changes",
+    saving: "Saving...",
+    lastUpdated: "Last updated",
+    offlineMode: "Offline mode",
+    offlineDescription: "Showing last saved state",
+    systemActiveDescription: "System active - orders allowed",
+    systemInactiveDescription: "System inactive - new orders blocked",
+    confirmToggle: "Change system state?",
+    uploadLogo: "Upload new logo",
+    chooseFile: "Choose file",
+    arabic: "Arabic",
+    french: "French",
+    optional: "Optional",
+    loading: "Loading...",
+    processing: "Processing...",
+    settingsSaved: "Settings saved",
+    errorSaving: "Save failed",
+    manageSettings: "Manage settings",
+    systemConfiguration: "System configuration",
+    refresh: "Refresh",
+    restaurantLogo: "Restaurant logo",
+    uploadLogoDesc: "Upload your logo (PNG, JPEG, WebP, max 5MB)",
+    fileSelected: "Selected file:",
+    uploading: "Uploading...",
+    updateLogo: "Update logo",
+    resetDailyNumber: "Reset daily order numbering",
+    resetDailyNumberDesc: "Resets today's counter (next order becomes 1)",
+    confirmResetDailyTitle: "Confirm reset",
+    confirmResetDailyDesc: "Today's order numbering will restart at 1. Existing orders unchanged. Continue?",
+    confirm: "Confirm",
+    cancel: "Cancel",
+    resetSuccess: "Counter reset",
+    resetFailed: "Reset failed"
+  , invalidLogoType: "Invalid file type"
+  , logoTooLarge: "File too large"
   }
 }
 
-export function getAdminSettingsTexts(language: 'ar' | 'fr') {
-  return adminSettingsTexts[language] || adminSettingsTexts.fr
-}
+export function getAdminSettingsTexts(language: 'ar' | 'fr' | 'en') { return adminSettingsTexts[language] || adminSettingsTexts.en }

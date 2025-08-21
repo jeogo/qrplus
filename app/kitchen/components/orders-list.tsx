@@ -4,7 +4,7 @@ import { KitchenOrderCard, KitchenOrder } from './order-card'
 
 interface Props {
   orders: KitchenOrder[]
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   t: Record<string,string>
   formatTimeAgo: (iso:string)=>string
   onMarkReady: (id:number)=>void

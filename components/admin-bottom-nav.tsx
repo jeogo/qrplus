@@ -15,6 +15,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
   labelAr: string
   labelFr: string
+  labelEn: string
 }
 
 const navItems: NavItem[] = [
@@ -22,43 +23,49 @@ const navItems: NavItem[] = [
     id: "dashboard",
     href: "/admin/dashboard",
     icon: Home,
-    labelAr: "الرئيسية",
-    labelFr: "Accueil",
+  labelAr: "الرئيسية",
+  labelFr: "Accueil",
+  labelEn: "Home",
   },
   {
     id: "menu",
     href: "/admin/menu",
     icon: ChefHat,
-    labelAr: "القائمة",
-    labelFr: "Menu",
+  labelAr: "القائمة",
+  labelFr: "Menu",
+  labelEn: "Menu",
   },
   {
     id: "tables",
     href: "/admin/tables",
     icon: Table,
-    labelAr: "الطاولات",
-    labelFr: "Tables",
+  labelAr: "الطاولات",
+  labelFr: "Tables",
+  labelEn: "Tables",
   },
   {
     id: "users",
     href: "/admin/users",
     icon: Users,
-    labelAr: "المستخدمين",
-    labelFr: "Utilisateurs",
+  labelAr: "المستخدمين",
+  labelFr: "Utilisateurs",
+  labelEn: "Users",
   },
   {
     id: "orders",
     href: "/admin/orders",
     icon: ClipboardList,
-    labelAr: "الطلبات",
-    labelFr: "Commandes",
+  labelAr: "الطلبات",
+  labelFr: "Commandes",
+  labelEn: "Orders",
   },
   {
     id: "settings",
     href: "/admin/settings",
     icon: Settings,
-    labelAr: "الإعدادات",
-    labelFr: "Paramètres",
+  labelAr: "الإعدادات",
+  labelFr: "Paramètres",
+  labelEn: "Settings",
   },
 ]
 
@@ -95,7 +102,7 @@ export function AdminBottomNav() {
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activeItem === item.id
-            const label = language === "ar" ? item.labelAr : item.labelFr
+            const label = language === "ar" ? item.labelAr : language === 'fr' ? item.labelFr : item.labelEn
 
             return (
               <Link

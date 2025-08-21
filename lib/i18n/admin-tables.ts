@@ -37,7 +37,8 @@ export const adminTablesTexts = {
   confirmSaveDescription: "هل تريد حفظ التغييرات؟",
   saving: "جاري الحفظ...",
   adding: "جاري الإضافة...",
-  updating: "جاري التحديث..."
+  updating: "جاري التحديث...",
+  instructions: "أدخل رقم الطاولة ثم احفظ"
   },
   fr: {
     title: "Gestion des Tables",
@@ -76,10 +77,49 @@ export const adminTablesTexts = {
   confirmSaveDescription: "Voulez-vous enregistrer les modifications ?",
   saving: "Enregistrement...",
   adding: "Ajout...",
-  updating: "Mise à jour..."
+  updating: "Mise à jour...",
+  instructions: "Entrez le numéro de table puis enregistrez"
+  },
+  en: {
+    title: "Tables Management",
+    description: "Manage restaurant tables and QR codes",
+    addTable: "Add new table",
+    tableName: "Table number",
+    edit: "Edit",
+    delete: "Delete",
+    download: "Download QR",
+    save: "Save",
+    cancel: "Cancel",
+    editTable: "Edit table",
+    deleteConfirm: "Are you sure?",
+    deleteDescription: "This table will be permanently deleted.",
+    noTables: "No tables",
+    addFirstTable: "Add your first table",
+    qrCodeFor: "QR code for table",
+    tableNumber: "Table number",
+    loading: "Loading...",
+    error: "Error",
+    success: "Success",
+    tableAdded: "Table added",
+    tableUpdated: "Table updated",
+    tableDeleted: "Table deleted",
+    open: "Open",
+    manageTables: "Manage tables",
+    actions: "Actions",
+    qrMenu: "QR Menu",
+    generatingQR: "Generating QR code...",
+    invalidNumber: "Invalid number",
+    operationFailed: "Operation failed",
+    viewMenu: "View menu",
+    refresh: "Refresh",
+    confirm: "Confirm",
+    confirmSaveTitle: "Confirm save",
+    confirmSaveDescription: "Save changes?",
+    saving: "Saving...",
+    adding: "Adding...",
+  updating: "Updating...",
+  instructions: "Enter table number then save"
   }
 }
 
-export function getAdminTablesTexts(language: 'ar' | 'fr') {
-  return adminTablesTexts[language] || adminTablesTexts.fr
-}
+export function getAdminTablesTexts(language: 'ar' | 'fr' | 'en') { return adminTablesTexts[language] || adminTablesTexts.en }

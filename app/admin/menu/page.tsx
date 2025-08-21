@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 // removed Select for auto category assignment
 import { Switch } from "@/components/ui/switch"
 import { Search, Plus, Loader2, RefreshCw, Image as ImageIcon } from "lucide-react"
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
+import { formatCurrencyLocalized } from '@/lib/utils'
 import { AdminHeader, useAdminLanguage } from "@/components/admin-header"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminMenuTexts } from "@/lib/i18n/admin-menu"
@@ -44,7 +45,7 @@ export default function MenuAdminPage() {
   const L = useMemo(() => getAdminMenuTexts(language), [language])
 
   // Restaurant settings (currency, name, language)
-  interface MinimalSettings { currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'; restaurant_name: string; language: 'ar' | 'fr' }
+  interface MinimalSettings { currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'; restaurant_name: string; language: 'ar' | 'fr' | 'en' }
   const [settings, setSettings] = useState<MinimalSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true) // used for potential future UI; keep but reference to avoid unused warning
   void settingsLoading
@@ -60,7 +61,7 @@ export default function MenuAdminPage() {
           const data = json.data as MinimalSettings
           if (!cancelled) setSettings({ currency: data.currency || 'DZD', restaurant_name: data.restaurant_name || '', language: data.language || 'ar' })
           // Initialize admin language from settings if user hasn't chosen yet
-          const stored = localStorage.getItem('admin-language') as 'ar' | 'fr' | null
+          const stored = localStorage.getItem('admin-language') as 'ar' | 'fr' | 'en' | null
             || undefined
           if (!stored && data.language) {
             localStorage.setItem('admin-language', data.language)
@@ -77,7 +78,7 @@ export default function MenuAdminPage() {
   }, [])
 
   const currency = settings?.currency || 'DZD'
-  const formatPrice = useCallback((value:number)=> new Intl.NumberFormat(language==='ar'?'ar-DZ':'fr-DZ',{style:'currency',currency,minimumFractionDigits:2}).format(value),[language,currency])
+  const formatPrice = useCallback((value:number)=> formatCurrencyLocalized(value, currency, language, { minimumFractionDigits: 2 }), [language, currency])
 
   const refreshCategories = useCallback(async (q?: string) => {
   // reset category load error (removed state)
@@ -89,10 +90,10 @@ export default function MenuAdminPage() {
       const data = await api<{ success: boolean; data: Category[] }>(`/api/categories?${qp.toString()}`)
       setCategories(data as unknown as Category[])
   } catch (e) {
-      console.error('categories load failed', e)
-      toast.error(language==='ar'? 'فشل تحميل الفئات':'Échec du chargement des catégories')
+  console.error('categories load failed', e)
+  notify({ type:'menu.categories.load.error' })
     } finally { setLoading(false) }
-  }, [language])
+  }, []) // language excluded: data set not language-dependent (server returns all in neutral form)
 
   // declare debouncedSearch earlier (placeholder, will assign after hook defined)
   useEffect(() => {
@@ -119,10 +120,10 @@ export default function MenuAdminPage() {
       const data = await api<{ success: boolean; data: Product[] }>(`/api/products?${qp.toString()}`)
       setProducts(data as unknown as Product[])
     } catch (e) {
-      console.error('products load failed', e)
-      toast.error(language==='ar'? 'فشل تحميل المنتجات':'Échec du chargement des produits')
+  console.error('products load failed', e)
+  notify({ type:'menu.products.load.error' })
     } finally { setLoadingProducts(false) }
-  }, [language])
+  }, []) // language excluded: product fetching not language-dependent
 
   function useDebounce<T>(value: T, delay = 320) {
     const [d, setD] = useState(value)
@@ -214,10 +215,10 @@ export default function MenuAdminPage() {
       setIsDialogOpen(false)
       setEditingItem(null)
       if (selectedCategory) void refreshProducts(selectedCategory)
-      toast.success(language==='ar'? 'تم الحفظ':'Enregistré')
+  notify({ type:'menu.save.success' })
     } catch (error) {
       console.error('Error saving:', error)
-      toast.error(language==='ar'? 'فشل الحفظ':'Échec de la sauvegarde')
+  notify({ type:'menu.save.error' })
     } finally {
       setSaving(false)
     }
@@ -243,10 +244,10 @@ export default function MenuAdminPage() {
         setProducts(products.filter(p => p.category_id !== id))
         if (selectedCategory === id) setSelectedCategory(null)
       }
-      toast.success(language==='ar'? 'تم الحذف':'Supprimé')
+  notify({ type:'menu.delete.success' })
     } catch (error) {
       console.error('Error deleting:', error)
-      toast.error(language==='ar'? 'فشل الحذف':'Échec de la suppression')
+  notify({ type:'menu.delete.error' })
     } finally {
       setDeletingId(null)
     }
@@ -301,7 +302,7 @@ export default function MenuAdminPage() {
               <div className="flex gap-3 w-full sm:w-auto">
                 <Button 
                   variant="outline" 
-                  onClick={()=>{ if (refreshing) return; setRefreshing(true); setSearchTerm(''); Promise.all([refreshCategories(), selectedCategory? refreshProducts(selectedCategory):Promise.resolve()]).finally(()=>{ setRefreshing(false); toast.success(language==='ar'? 'تم التحديث':'Actualisé') }) }} 
+                  onClick={()=>{ if (refreshing) return; setRefreshing(true); setSearchTerm(''); Promise.all([refreshCategories(), selectedCategory? refreshProducts(selectedCategory):Promise.resolve()]).finally(()=>{ setRefreshing(false); notify({ type:'menu.refresh.success' }) }) }} 
                   disabled={refreshing} 
                   className="flex-1 sm:flex-none h-12 px-6 rounded-2xl border-slate-200 hover:bg-slate-50 transition-all"
                 >
@@ -431,7 +432,7 @@ export default function MenuAdminPage() {
                     : (isProductMode ? L.addProductTitle : L.addCategoryTitle)}
                 </DialogTitle>
                 <DialogDescription className="text-base text-slate-600">
-                  {editingItem ? (language==='ar'? 'قم بتعديل البيانات ثم احفظ التغييرات':'Modifiez les informations puis enregistrez') : (language==='ar'? 'أدخل تفاصيل جديدة ثم احفظ':'Renseignez les informations puis enregistrez')}
+                  {editingItem ? L.editDialogDescription : L.createDialogDescription}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-6 px-6 pb-6">

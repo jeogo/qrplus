@@ -15,7 +15,7 @@ export interface SystemOverviewSection {
   glossary: string
 }
 
-export const systemOverviewTexts: Record<'ar'|'fr', SystemOverviewSection> = {
+export const systemOverviewTexts: Record<'ar'|'fr'|'en', SystemOverviewSection> = {
   ar: {
     intro: `\nمنظومة QRPlus هي منصة متكاملة لإدارة المطاعم تُبسِّط دورة حياة الطلب منذ لحظة إنشائه من قِبَل العميل عبر رمز QR وحتى تقديمه وأرشفته. تم تصميمها بحيث تكون خفيفة، سريعة، ثنائية اللغة (عربي / فرنسي)، وقابلة للتوسع لاحقًا بدون تغييرات جذرية.\n\nتعتمد الواجهة على Next.js (App Router) وتدفق بيانات حي (SSE) + إشعارات دفع (FCM) لضمان استجابة فورية لكل الأدوار (مدير، مطبخ، نادل) مع الحد الأدنى من الاستهلاك الشبكي.`,
     architecture: `\nالبنية الأساسية:\n- الواجهة (Next.js 14 App Router) مع مكونات تفاعلية وقابلة لإعادة الاستخدام.\n- Firestore (سجلات: orders, order_items, tables, device_tokens, accounts, products).\n- قنوات تزامن: EventSource (SSE) لتدفق الطلبات الحي + Firebase Cloud Messaging للإشعارات النظامية.\n- Service Worker مخصص: تسجيل مبكر، معالجة foreground/background، إظهار الإشعار حتى إن نقصت الحقول.\n- آلية إزالة الضجيج: BroadcastChannel + خرائط ذاكرة مؤقتة لتفادي التكرار بين التوست و إشعارات النظام.\n- فصل مسؤوليات: ملفات i18n لكل صفحة، وحدات push-sender مجردة حسب حالة الطلب.\n- أرشفة الطلبات النهائية: نقل الطلب إلى التخزين المؤرشف بعد served أو إلغاء.`,
@@ -39,7 +39,19 @@ export const systemOverviewTexts: Record<'ar'|'fr', SystemOverviewSection> = {
     security: `Sécurité: requireSession, validations de rôle, nettoyage tokens invalides, limites d'entrée, blocage si système inactif.`,
     roadmap: `Feuille de route: préférences UI avancées, push client, webhooks, métriques SLA, paiement, tableau live, analytics temps de préparation.`,
     glossary: `Glossaire: SSE, FCM, Service Worker, Archive, Dedupe, Lifecycle.`
+  },
+  en: {
+    intro: 'QRPlus platform overview for restaurant order lifecycle (QR -> preparation -> service -> archive) using Next.js + SSE + FCM.',
+    architecture: 'Architecture: Next.js App Router, Firestore, SSE for real-time streams, FCM for push, dedicated Service Worker, per-page i18n.',
+    orderFlow: 'Flow: pending -> approved -> ready -> served (archived); deleting pending => logical cancelled.',
+    roles: 'Roles: admin (all actions), kitchen (prep->ready), waiter (ready->served). Extensible.',
+    statuses: 'Statuses: pending, approved, ready, served, cancelled. Transitions validated.',
+    notifications: 'Notifications: toasts (sound), FCM (grouped by role+lang), BroadcastChannel dedupe, foreground fallback. Events: new, approved, ready, served, cancelled.',
+    performance: 'Performance: SSE reduces polling, light cache, batched FCM (500), filtering & prefetch.',
+    security: 'Security: requireSession, role validations, cleanup invalid tokens, input limits, block if system inactive.',
+    roadmap: 'Roadmap: advanced UI prefs, client push, webhooks, SLA metrics, payments, live ops, prep time analytics.',
+    glossary: 'Glossary: SSE, FCM, Service Worker, Archive, Dedupe, Lifecycle.'
   }
 }
 
-export function getSystemOverview(lang: 'ar'|'fr') { return systemOverviewTexts[lang] }
+export function getSystemOverview(lang: 'ar'|'fr'|'en') { return systemOverviewTexts[lang] || systemOverviewTexts.en }

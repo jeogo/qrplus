@@ -15,7 +15,7 @@ const STATUS_FLOW: Record<string,string[]> = { pending:['approved'], approved:['
 export interface AdminOrderCardProps {
   order: Order
   items: OrderItem[]
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   onTransition: (id:number, status:string)=> Promise<void>
   onRemove: (id:number)=> Promise<void>
   onLoadDetails: ()=> void
@@ -54,12 +54,12 @@ export function AdminOrderCard({ order, items, language, onTransition, onRemove,
         </div>
         {baseCard && (
           <div className="mb-4">
-            <h4 className="font-semibold text-slate-700 mb-3">{language === 'ar' ? 'عناصر الطلب' : 'Articles de la commande'}</h4>
+            <h4 className="font-semibold text-slate-700 mb-3">{L.itemsLabel || 'Items'}</h4>
             <div className="space-y-2">
-              {(!items || !items.length) && (<div className="text-xs text-slate-400 italic">{language === 'ar' ? 'جاري تحميل التفاصيل...' : 'Chargement des détails...'}</div>)}
+              {(!items || !items.length) && (<div className="text-xs text-slate-400 italic">{L.loading}</div>)}
               {items?.map(item => (
                 <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-800 font-medium">{item.product_name || `${language === 'ar' ? 'منتج #' : 'Produit #'}${item.product_id}`}</span>
+                  <span className="text-slate-800 font-medium">{item.product_name || `#${item.product_id}`}</span>
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="bg-slate-200 text-slate-800">x{item.quantity}</Badge>
                     <span className="text-sm font-medium">{item.price * item.quantity} DZD</span>

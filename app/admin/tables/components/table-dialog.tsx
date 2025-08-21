@@ -13,8 +13,8 @@ interface TableDialogProps {
   editing?: boolean
   adding?: boolean
   initialNumber?: number | null
-  texts: { addTable: string; editTable: string; tableNumber: string; tableName: string; save: string; cancel: string; adding: string; updating: string }
-  language: 'ar' | 'fr'
+  texts: { addTable: string; editTable: string; tableNumber: string; tableName: string; save: string; cancel: string; adding: string; updating: string; instructions?: string }
+  language: 'ar' | 'fr' | 'en'
 }
 
 export function TableDialog({ open, onOpenChange, onConfirm, editing, adding, initialNumber, texts, language }: TableDialogProps) {
@@ -37,7 +37,7 @@ export function TableDialog({ open, onOpenChange, onConfirm, editing, adding, in
         <DialogHeader>
           <DialogTitle>{isEdit ? texts.editTable : texts.addTable}</DialogTitle>
           <DialogDescription>
-            {language==='ar'? 'أدخل رقم الطاولة ثم احفظ':'Entrez le numéro de table puis enregistrez'}
+            {texts.instructions || ''}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">

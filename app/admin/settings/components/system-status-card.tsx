@@ -18,7 +18,7 @@ interface SettingsTexts {
 interface Props {
   active: boolean
   updatedAt: string
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   L: SettingsTexts
   onToggle: (next: boolean)=> Promise<void>
   disabled?: boolean
@@ -33,7 +33,7 @@ export function SystemStatusCard({ active, updatedAt, language, L, onToggle, dis
   }
 
   const date = new Date(updatedAt)
-  const formatted = date.toLocaleString(language === 'ar' ? 'ar-SA' : 'fr-FR')
+  const formatted = date.toLocaleString(language === 'ar' ? 'ar-SA' : (language==='fr' ? 'fr-FR' : 'en-US'))
 
   return (
     <Card className="shadow-lg border-slate-200/60 bg-white/80 backdrop-blur-sm">

@@ -90,7 +90,53 @@ export const analyticsTexts = {
       refreshError: "Échec de l'actualisation"
     },
     retry: 'Réessayer'
+  },
+  en: {
+    title: 'Analytics',
+    pageTitle: 'Order Analytics',
+    pageSubtitle: 'View detailed order statistics',
+    refresh: 'Refresh',
+    updatedAt: 'Last update',
+    periods: {
+      today: 'Today',
+      last3days: 'Last 3 days',
+      lastweek: 'Last week',
+      lastmonth: 'Last month',
+      custom: 'Custom'
+    },
+    dateFrom: 'From date',
+    dateTo: 'To date',
+    stats: {
+      totalOrders: 'Total Orders',
+      totalRevenue: 'Total Revenue',
+      averageOrder: 'Average Order',
+      servedOrders: 'Served Orders',
+      todayServed: 'Served Today',
+      todayRevenue: 'Served Revenue Today',
+      cancelled: 'Cancelled',
+      avgServeTime: 'Avg Serve Time (min)'
+    },
+    currency: 'DZD',
+    statusBreakdown: 'Order Status Breakdown',
+    dailyStats: 'Daily Statistics',
+    noDailyData: 'No data for selected period',
+    recentOrders: 'Recent Orders',
+    noOrdersPeriod: 'No orders in this period',
+    loading: 'Loading...',
+    showingOf: (shown:number,total:number)=> `Showing ${shown} of ${total} orders`,
+    statuses: {
+      pending: 'Pending',
+      approved: 'Approved',
+      ready: 'Ready',
+      served: 'Served',
+      cancelled: 'Cancelled'
+    },
+    toasts: {
+      refreshed: 'Data refreshed',
+      refreshError: 'Failed to refresh data'
+    },
+    retry: 'Retry'
   }
 }
 
-export function getAnalyticsTexts(lang: 'ar'|'fr') { return analyticsTexts[lang] }
+export function getAnalyticsTexts(lang: 'ar'|'fr'|'en') { return analyticsTexts[lang] }

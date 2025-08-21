@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { authI18n, AuthLang } from '@/lib/i18n/auth'
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 
 interface LoginFormProps {
   language: AuthLang
@@ -31,15 +31,15 @@ export function LoginForm({ language, onSuccess, isLoading, setIsLoading }: Logi
       const r = await fetch('/api/auth/login',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password })})
       const j = await r.json()
       if(j.success){
-        toast.success(t.loginSuccess)
+        notify({ type:'auth.login.success' })
         onSuccess(j.user?.role)
       } else {
         setErrors({general: j.error || t.invalidCredentials})
-        toast.error(j.error || t.invalidCredentials)
+        notify({ type:'auth.login.error' })
       }
-  } catch{
+	} catch{
       setErrors({general: t.invalidCredentials})
-      toast.error(t.invalidCredentials)
+      notify({ type:'auth.login.error' })
     } finally { setIsLoading(false) }
   }
 

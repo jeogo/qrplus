@@ -1,6 +1,35 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// Basic security headers (CSP minimalist, can be expanded later)
+function applySecurityHeaders(res: NextResponse) {
+  res.headers.set('X-Frame-Options', 'SAMEORIGIN')
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.headers.set('X-XSS-Protection', '0') // modern browsers rely on CSP
+
+  // In development, Next.js (Turbopack + React Refresh) needs websockets + eval/inline allowances.
+  // Overly strict CSP here was causing the RSC stream to terminate early ("Connection closed").
+  // We loosen the policy only for dev; production policy can be hardened later with nonces.
+  const isDev = process.env.NODE_ENV === 'development'
+  if (isDev) {
+    // Allow ws: for HMR, 'unsafe-eval' for React Refresh, and blob: for potential asset workers.
+    res.headers.set('Content-Security-Policy', [
+      "default-src 'self' blob: data:",
+      "img-src 'self' data: https:",
+      "media-src 'self' data: https:",
+      "connect-src 'self' ws: wss: http: https:",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self' data:",
+    ].join('; '))
+  } else {
+    // Production (still intentionally permissive; tighten with nonces/hashes later)
+    res.headers.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; media-src 'self' data: https:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;")
+  }
+  return res
+}
+
 const ADMIN_PREFIX = '/admin'
 const KITCHEN_PREFIX = '/kitchen'
 const WAITER_PREFIX = '/waiter'
@@ -25,35 +54,33 @@ export function middleware(req: NextRequest) {
   const decoded = decodeToken(token)
   const role = decoded?.role
 
-  // Auth page: redirect if already logged in
+  // Auth page: redirect if already logged in (centralized mapping)
   if (pathname === '/auth' && role) {
-    const url = req.nextUrl.clone()
-    if (role === 'waiter') url.pathname = WAITER_PREFIX
-    else if (role === 'kitchen') url.pathname = KITCHEN_PREFIX
-    else url.pathname = '/admin/dashboard'
-    return NextResponse.redirect(url)
+    const target = role === 'waiter' ? WAITER_PREFIX : (role === 'kitchen' ? KITCHEN_PREFIX : '/admin/dashboard')
+    const url = req.nextUrl.clone(); url.pathname = target
+    return applySecurityHeaders(NextResponse.redirect(url))
   }
 
   // Require auth for protected zones
   const protectedZones = [ADMIN_PREFIX, KITCHEN_PREFIX, WAITER_PREFIX]
   if (protectedZones.some(p => pathname.startsWith(p))) {
     if (!token || !role) {
-      const url = req.nextUrl.clone(); url.pathname = '/auth'; return NextResponse.redirect(url)
+      const url = req.nextUrl.clone(); url.pathname = '/auth'; return applySecurityHeaders(NextResponse.redirect(url))
     }
   }
 
-  // Role enforcement
+  // Role enforcement (simple prefix policy – page-level, not API)
   if (pathname.startsWith(ADMIN_PREFIX) && role !== 'admin') {
-    const url = req.nextUrl.clone(); url.pathname = role === 'waiter' ? WAITER_PREFIX : role === 'kitchen' ? KITCHEN_PREFIX : '/auth'; return NextResponse.redirect(url)
+    const url = req.nextUrl.clone(); url.pathname = role === 'waiter' ? WAITER_PREFIX : role === 'kitchen' ? KITCHEN_PREFIX : '/auth'; return applySecurityHeaders(NextResponse.redirect(url))
   }
   if (pathname.startsWith(KITCHEN_PREFIX) && role !== 'kitchen') {
-    const url = req.nextUrl.clone(); url.pathname = role === 'waiter' ? WAITER_PREFIX : role === 'admin' ? '/admin/dashboard' : '/auth'; return NextResponse.redirect(url)
+    const url = req.nextUrl.clone(); url.pathname = role === 'waiter' ? WAITER_PREFIX : role === 'admin' ? '/admin/dashboard' : '/auth'; return applySecurityHeaders(NextResponse.redirect(url))
   }
   if (pathname.startsWith(WAITER_PREFIX) && role !== 'waiter') {
-    const url = req.nextUrl.clone(); url.pathname = role === 'kitchen' ? KITCHEN_PREFIX : role === 'admin' ? '/admin/dashboard' : '/auth'; return NextResponse.redirect(url)
+    const url = req.nextUrl.clone(); url.pathname = role === 'kitchen' ? KITCHEN_PREFIX : role === 'admin' ? '/admin/dashboard' : '/auth'; return applySecurityHeaders(NextResponse.redirect(url))
   }
 
-  return NextResponse.next()
+  return applySecurityHeaders(NextResponse.next())
 }
 
 export const config = {

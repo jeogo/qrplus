@@ -23,7 +23,7 @@ import { UsersToolbar } from './components/users-toolbar'
 import { UsersSkeletonGrid } from './components/users-skeleton-grid'
 import { UserDialog } from './components/user-dialog'
 import { UsersEmptyState } from './components/empty-state'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 
 interface User {
   id: number
@@ -98,11 +98,11 @@ export default function UsersAdminPage() {
       }
     } catch (e) {
   console.error('users load failed', e)
-  toast.error(t.loadError)
+  notify({ type:'users.load.error' })
     } finally {
       setLoading(false)
     }
-  }, [api, adminEmail, t.approveOrders, t.serveOrders, t.makeReady, t.loadError])
+  }, [api, adminEmail, t.approveOrders, t.serveOrders, t.makeReady]) // excluded t.loadError: not used in mapping logic
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -151,10 +151,10 @@ export default function UsersAdminPage() {
       const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('delete failed')
       setUsers(users.filter(u=>u.id!==userId))
-      toast.success(t.deleted)
+  notify({ type:'users.delete.success' })
     } catch (e) {
       console.error(e)
-      toast.error(t.deleteError)
+  notify({ type:'users.delete.error' })
     } finally { setDeletingId(null) }
   }
 
@@ -180,7 +180,7 @@ export default function UsersAdminPage() {
           { key:'serve_orders', label: t.serveOrders, active: json.data.permissions.serve_orders },
           { key:'make_ready', label: t.makeReady, active: json.data.permissions.make_ready },
         ], __flash:true } : u))
-        toast.success(t.updated)
+  notify({ type:'users.update.success' })
       } else {
         const tempId = Date.now()*-1
         const optimistic = { id: tempId, username: formData.username, role: formData.role, permissions: formData.permissions, active:true, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), _derivedPermissions:[
@@ -197,12 +197,12 @@ export default function UsersAdminPage() {
           { key:'serve_orders', label: t.serveOrders, active: json.data.permissions.serve_orders },
           { key:'make_ready', label: t.makeReady, active: json.data.permissions.make_ready },
         ], __flash:true }: u))
-        toast.success(t.created)
+  notify({ type:'users.create.success' })
       }
       setIsDialogOpen(false)
     } catch (e) {
       console.error(e)
-      toast.error(t.saveError)
+  notify({ type:'users.create.error' })
       // rollback by reloading
       void loadUsers()
   } finally { setSaving(false); setConfirmSaveOpen(false) }
@@ -222,7 +222,7 @@ export default function UsersAdminPage() {
         make_ready: role === "kitchen",
       },
     })
-  toast.info(t.roleChangedNote)
+  notify({ type:'users.update.success' })
   }
 
   const handlePermissionChange = (permission: keyof User["permissions"], value: boolean) => {
@@ -248,7 +248,7 @@ export default function UsersAdminPage() {
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 container mx-auto px-4 py-6 space-y-6">
         <UsersToolbar 
           onAdd={handleAddUser} 
-          onRefresh={()=> { toast.info(t.refresh); void loadUsers() }} 
+          onRefresh={()=> { notify({ type:'analytics.refresh.success' }); void loadUsers() }} 
           onSearch={setSearch}
           texts={{ search: t.searchPlaceholder, add: t.addUser, refresh: t.refresh, clear: t.cancel }}
         />

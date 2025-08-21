@@ -13,7 +13,7 @@ interface ProductGridProps {
 	error: string | null
 	t: PublicMenuTexts
 	currency: string
-	language: 'ar'|'fr'
+	language: 'ar'|'fr'|'en'
 	onRetry: () => void
 	onBack: () => void
 	onAdd: (p:PublicProduct)=>void
@@ -26,7 +26,7 @@ interface ProductGridProps {
 export const ProductGrid = memo(function ProductGrid({ products, loading, error, t, currency, language, onRetry, onBack, onAdd, onInc, onDec, addingId, inCartQty }: ProductGridProps){
 	const [search, setSearch] = useState('')
 	const filtered = products.filter(p => {
-		const base = (language==='ar' ? (p.name_ar||p.name) : (p.name_fr||p.name)) || ''
+		const base = (language==='ar' ? (p.name_ar||p.name) : language==='fr'? (p.name_fr||p.name): p.name) || ''
 		return !search || base.toLowerCase().includes(search.toLowerCase())
 	})
 	return (
@@ -41,7 +41,7 @@ export const ProductGrid = memo(function ProductGrid({ products, loading, error,
 				<input
 					value={search}
 					onChange={e=> setSearch(e.target.value)}
-					placeholder={language==='ar'? 'بحث...' : 'Rechercher...'}
+					placeholder={t.searchPlaceholder}
 					className="w-full rounded-xl border border-border/60 bg-white/70 dark:bg-white/5 backdrop-blur px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 pl-10"
 				/>
 				<div className="absolute left-3 top-3.5 text-muted-foreground/70">
@@ -107,7 +107,7 @@ export const ProductGrid = memo(function ProductGrid({ products, loading, error,
 										) : (
 											<Button size="sm" onClick={()=>onAdd(p)} disabled={addingId===p.id || p.available===false} className="h-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all">
 												{addingId===p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-												<span className="text-xs">{currency==='د.ج' ? 'إضافة' : 'Ajouter'}</span>
+												<span className="text-xs">{t.add}</span>
 											</Button>
 										)}
 									</div>

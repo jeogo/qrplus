@@ -62,7 +62,33 @@ export const adminAnalyticsTexts = {
       ready: "Prête", 
       served: "Servie" 
     },
+  },
+  en: {
+    title: "Analytics & Archive",
+    description: "View detailed order statistics and history",
+    filters: "Filters",
+    dateFrom: "From date",
+    dateTo: "To date",
+    status: "Status",
+    table: "Table",
+    apply: "Apply filter",
+    reset: "Reset",
+    results: "Results",
+    noData: "No matching data",
+    export: "Export data",
+    totalRevenue: "Total revenue",
+    averageOrder: "Average order value",
+    todayOrders: "Today's orders",
+    todayRevenue: "Today's revenue",
+    loading: "Loading...",
+    resultsTotalLabel: "Total:",
+    emptyAdjustFilters: "Try adjusting filters or date range",
+    limitedNote: "Showing first 500 results. Use filters to narrow.",
+    orderLabelShort: "Order",
+    tableLabelShort: "Table",
+    currencySuffix: "DA",
+    statuses: { all: "All statuses", pending: "Pending", approved: "Approved", ready: "Ready", served: "Served" },
   }
 }
 
-export function getAdminAnalyticsTexts(lang: 'ar' | 'fr') { return adminAnalyticsTexts[lang] }
+export function getAdminAnalyticsTexts(lang: 'ar' | 'fr' | 'en') { return adminAnalyticsTexts[lang] }

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { settingsUpdateSchema } from '@/schemas/settings'
 
 interface SettingsData {
   id: number
   account_id: number
   restaurant_name: string
   logo_url?: string
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'
   address?: string
   phone?: string
@@ -20,7 +22,7 @@ interface SettingsData {
 interface SystemSettingsData {
   id?: number
   account_id?: number
-  language?: 'ar' | 'fr'
+  language?: 'ar' | 'fr' | 'en'
   currency?: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD'
   logo_url?: string
   created_at?: string
@@ -41,8 +43,7 @@ interface AccountData {
 // GET /api/admin/settings - Fetch restaurant & system settings
 export async function GET() {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+  const sess = await requirePermission('settings','read')
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
@@ -79,45 +80,36 @@ export async function GET() {
 // PATCH /api/admin/settings - Update restaurant & system settings
 export async function PATCH(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    const sess = await requirePermission('settings','update')
+  const { data, response } = await parseJsonBody(req, settingsUpdateSchema)
+  if (response) return response
+  if (!data) return NextResponse.json({ success:false, error:'Invalid body' }, { status:400 })
+  const body = data
 
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
 
-    const body = await req.json()
     const now = new Date().toISOString()
     const db = admin.firestore()
-
     const accountUpdates: Partial<AccountData> & { updated_at: string } = { updated_at: now }
     const systemSettingsUpdates: Partial<SystemSettingsData> & { updated_at: string } = { updated_at: now }
 
-    // Accounts updates
-    if (body.restaurant_name !== undefined) {
-      const name = String(body.restaurant_name).trim()
-      if (!name) return NextResponse.json({ success: false, error: 'Restaurant name required' }, { status: 400 })
-      accountUpdates.name = name
-    }
-    if (body.system_active !== undefined) accountUpdates.active = Boolean(body.system_active)
-    if (body.address !== undefined) accountUpdates.address = body.address ? String(body.address).trim() : ''
-    if (body.phone !== undefined) accountUpdates.phone = body.phone ? String(body.phone).trim() : ''
-    if (body.email !== undefined) accountUpdates.email = body.email ? String(body.email).trim() : ''
+    if (body.restaurant_name !== undefined) accountUpdates.name = body.restaurant_name
+    if (body.system_active !== undefined) accountUpdates.active = body.system_active
+    if (body.address !== undefined) accountUpdates.address = body.address || ''
+    if (body.phone !== undefined) accountUpdates.phone = body.phone || ''
+    if (body.email !== undefined) accountUpdates.email = body.email || ''
+    if (body.language !== undefined) systemSettingsUpdates.language = body.language
+    if (body.currency !== undefined) systemSettingsUpdates.currency = body.currency
+    if (body.logo_url !== undefined) systemSettingsUpdates.logo_url = body.logo_url || ''
 
-    // System settings updates
-    if (body.language !== undefined) {
-      if (!['ar', 'fr'].includes(body.language)) return NextResponse.json({ success: false, error: 'Invalid language' }, { status: 400 })
-      systemSettingsUpdates.language = body.language
+    const hasAccountChanges = Object.keys(accountUpdates).length > 1
+    const hasSystemChanges = Object.keys(systemSettingsUpdates).length > 1
+    if (!hasAccountChanges && !hasSystemChanges) {
+      return NextResponse.json({ success: true, data: { noop: true } }, { status: 204 })
     }
-    if (body.currency !== undefined) {
-      if (!['USD', 'EUR', 'MAD', 'TND', 'DZD'].includes(body.currency)) return NextResponse.json({ success: false, error: 'Invalid currency' }, { status: 400 })
-      systemSettingsUpdates.currency = body.currency
-    }
-    if (body.logo_url !== undefined) systemSettingsUpdates.logo_url = body.logo_url ? String(body.logo_url).trim() : ''
-
-    // Update Firestore collections
-    if (Object.keys(accountUpdates).length > 1) await db.collection('accounts').doc(String(accountId)).update(accountUpdates)
-
-    if (Object.keys(systemSettingsUpdates).length > 1) {
+    if (hasAccountChanges) await db.collection('accounts').doc(String(accountId)).update(accountUpdates)
+    if (hasSystemChanges) {
       const settingsSnap = await db.collection('system_settings').where('account_id', '==', accountId).limit(1).get()
       if (!settingsSnap.empty) {
         await db.collection('system_settings').doc(settingsSnap.docs[0].id).update(systemSettingsUpdates)
@@ -127,19 +119,17 @@ export async function PATCH(req: NextRequest) {
         await db.collection('system_settings').doc(String(settingsId)).set({
           id: settingsId,
           account_id: accountId,
-          language: 'ar',
-          currency: 'DZD',
-          logo_url: '',
+          language: body.language || 'ar',
+          currency: body.currency || 'DZD',
+          logo_url: body.logo_url || '',
           created_at: now,
           ...systemSettingsUpdates
         })
       }
     }
 
-    // Return updated data
     const updatedAccountSnap = await db.collection('accounts').doc(String(accountId)).get()
     const updatedAccountData = updatedAccountSnap.data()!
-
     const updatedSettingsSnap = await db.collection('system_settings').where('account_id', '==', accountId).limit(1).get()
     const updatedSettingsData: SystemSettingsData = !updatedSettingsSnap.empty ? updatedSettingsSnap.docs[0].data() : { language: 'ar', currency: 'DZD', logo_url: '' }
 
@@ -158,7 +148,7 @@ export async function PATCH(req: NextRequest) {
       updated_at: now,
     }
 
-    return NextResponse.json({ success: true, data: settings })
+  return NextResponse.json({ success: true, data: settings })
   } catch (err) {
     return handleError(err, 'PATCH')
   }
@@ -169,6 +159,6 @@ interface AppError { status?: number }
 function handleError(err: unknown, op: string) {
   if (process.env.NODE_ENV !== 'production') console.error(`[API][ADMIN][SETTINGS][${op}]`, err)
   const status = (err as AppError | undefined)?.status ?? 500
-  const message = status === 401 ? 'Unauthenticated' : 'Server error'
+  const message = status === 401 ? 'Unauthenticated' : (status===400? 'Bad request' : 'Server error')
   return NextResponse.json({ success: false, error: message }, { status })
 }

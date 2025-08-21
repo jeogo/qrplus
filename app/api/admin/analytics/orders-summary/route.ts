@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import type { OrdersSummaryResponse, OrderAnalyticsSummary, OrdersSummaryOrderRow } from '@/types/analytics'
 
 // GET /api/admin/analytics/orders-summary?from=ISO&to=ISO
 // Returns aggregated stats and raw orders (capped) for analytics dashboard
 export async function GET(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if(sess.role !== 'admin') return NextResponse.json({ success:false, error:'Forbidden' }, { status:403 })
+  const sess = await requirePermission('analytics','read')
     const accountId = typeof sess.accountNumericId === 'number'? sess.accountNumericId : Number(sess.accountId)
     if(!Number.isFinite(accountId)) return NextResponse.json({ success:false, error:'Account missing' }, { status:400 })
 

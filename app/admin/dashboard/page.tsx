@@ -10,7 +10,7 @@ import { AdminLayout } from "@/components/admin-bottom-nav"
 import { useSession } from "@/hooks/use-session"
 import { getAdminDashboardTexts } from "@/lib/i18n/admin-dashboard"
 import { StatCard } from "./components/stat-card"
-import { toast } from "sonner"
+import { notify } from '@/lib/notifications/facade'
 
 interface DashboardStats { totalTables: number; totalProducts: number; totalUsers: number; totalOrders: number; pendingOrders: number }
 
@@ -65,13 +65,13 @@ export default function AdminDashboard() {
       }
       setStats(counts)
       setUpdatedAt(new Date().toLocaleTimeString())
-      toast.success(language==='ar'? 'تم تحديث الإحصائيات':'Stats updated')
+  notify({ type:'dashboard.refresh.success' })
     } catch (e) {
       console.error('dashboard stats load failed', e)
       setError('load_failed')
-      toast.error(language==='ar'? 'فشل تحميل الإحصائيات':'Failed to load stats')
+  notify({ type:'dashboard.refresh.error' })
     } finally { setLoading(false) }
-  }, [user, language])
+  }, [user]) // language excluded intentionally: stats numeric content independent of language labels
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { if (!sessionLoading && user) void fetchStats() }, [sessionLoading, user, fetchStats])
@@ -100,11 +100,11 @@ export default function AdminDashboard() {
         <AdminHeader title={t.title} />
         <main className="container mx-auto px-4 py-10 flex flex-col items-center gap-6">
           <div className="max-w-md text-center space-y-4">
-            <h2 className="text-xl font-semibold">{language==='ar' ? 'حدث خطأ أثناء تحميل البيانات' : 'Failed to load dashboard data'}</h2>
+            <h2 className="text-xl font-semibold">{t.loadErrorTitle}</h2>
             <p className="text-muted-foreground text-sm">
-              {error === 'timeout' ? (language==='ar' ? 'انتهت المهلة. تحقق من الاتصال أو أعد المحاولة.' : 'Request timed out. Check connection and retry.') : (language==='ar' ? 'تحقق من الاتصال أو أعد المحاولة.' : 'Please check your connection and try again.')}
+              {error === 'timeout' ? t.loadTimeout : t.loadRetry}
             </p>
-            <Button onClick={fetchStats} variant="secondary">{language==='ar' ? 'إعادة المحاولة' : 'Retry'}</Button>
+            <Button onClick={fetchStats} variant="secondary">{t.retry}</Button>
           </div>
         </main>
       </AdminLayout>

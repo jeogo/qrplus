@@ -16,7 +16,7 @@ import { Clock } from 'lucide-react'
 
 export function PublicMenuPage(){
   const { restaurantId, tableId } = useParams() as { restaurantId: string; tableId: string }
-  const [language, setLanguage] = useState<'ar'|'fr'>('ar')
+  const [language, setLanguage] = useState<'ar'|'fr'|'en'>('ar')
   const [mounted, setMounted] = useState(false)
   const t = getPublicMenuTexts(language)
   const session = usePublicOrderSession({ restaurantId, tableId })
@@ -30,7 +30,7 @@ export function PublicMenuPage(){
   const audioRef = useRef<HTMLAudioElement|null>(null)
   const sseControllerRef = useRef<AbortController | null>(null)
 
-  useEffect(()=>{ setMounted(true); try{ audioRef.current = new Audio('/notification.wav'); audioRef.current.volume = .6 }catch{}; const savedLang = localStorage.getItem('qr_menu_lang') as 'ar'|'fr'|null; if(savedLang) setLanguage(savedLang); const savedOrderId = OrderTracking.load(tableId); if(savedOrderId) setActiveOrderId(savedOrderId) },[tableId, setActiveOrderId])
+  useEffect(()=>{ setMounted(true); try{ audioRef.current = new Audio('/notification.wav'); audioRef.current.volume = .6 }catch{}; const savedLang = localStorage.getItem('qr_menu_lang') as 'ar'|'fr'|'en'|null; if(savedLang) setLanguage(savedLang); const savedOrderId = OrderTracking.load(tableId); if(savedOrderId) setActiveOrderId(savedOrderId) },[tableId, setActiveOrderId])
   useEffect(()=>{ try{ localStorage.setItem('qr_menu_lang', language) }catch{} },[language])
   useEffect(()=>{ if(meta?.language && meta.language !== language) setLanguage(meta.language) },[meta, language])
   const playNotificationSoundRef = useRef(()=>{ if(audioNotifications && audioRef.current){ try{ audioRef.current.currentTime=0; audioRef.current.play().catch(()=>{}) }catch{} } })
@@ -41,7 +41,7 @@ export function PublicMenuPage(){
   if(!mounted){ return (<div className="min-h-screen flex items-center justify-center"><div className="flex flex-col items-center gap-4"><div className="h-12 w-12 rounded-full border-2 border-border border-t-transparent animate-spin" aria-label="loading" /><p className="text-xs text-muted-foreground tracking-wide uppercase">Loading</p></div></div>) }
   return (
     <div className={`min-h-screen ${language==='ar'? 'rtl':'ltr'} bg-gradient-to-b from-background via-background to-background`}>
-  <Header meta={meta} restaurantId={restaurantId} tableId={tableId} t={t} onToggleLanguage={()=> setLanguage(l=> l==='ar'?'fr':'ar')} cartCount={cartCount} hasActiveOrder={!!activeOrderId} onOpenCart={()=> setShowCart(true)} onOpenTracker={()=> setShowOrderTracker(true)} />
+  <Header meta={meta} restaurantId={restaurantId} tableId={tableId} t={t} onToggleLanguage={()=> setLanguage(l=> l==='ar' ? 'fr' : (l==='fr' ? 'en' : 'ar'))} cartCount={cartCount} hasActiveOrder={!!activeOrderId} onOpenCart={()=> setShowCart(true)} onOpenTracker={()=> setShowOrderTracker(true)} />
       <main className="mx-auto max-w-5xl p-4 pb-32">
         {!selectedCategory && (<CategoryGrid categories={categories} loading={loadingCats} error={errorCats} t={t} onRetry={fetchCategories} onSelect={selectCategory} />)}
         {selectedCategory && (<ProductGrid products={products} loading={loadingProducts} error={errorProducts} t={t} currency={meta?.currency || t.dzd} language={language} onRetry={()=> selectedCategory && fetchProducts(selectedCategory)} onBack={()=> setSelectedCategory(null)} onAdd={addToCart} onInc={inc} onDec={dec} addingId={addingToCart} inCartQty={(id)=> cart.find(c=> c.id===id)?.quantity || 0} />)}

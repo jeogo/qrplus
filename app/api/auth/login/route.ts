@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
 import { createToken } from '@/lib/auth/jwt'
 import bcrypt from 'bcryptjs'
+import { loginSchema } from '@/schemas/auth'
+import { ZodError } from 'zod'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { email: usernameOrEmail, password } = body
-    if (!usernameOrEmail || !password) {
-      return NextResponse.json({ success: false, error: 'Missing credentials' }, { status: 400 })
+    let parsed: { identifier: string; password: string }
+    try {
+      const body = await req.json()
+      parsed = loginSchema.parse({ identifier: body.email ?? body.identifier, password: body.password })
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return NextResponse.json({ success: false, error: 'Missing credentials', code: 'VALIDATION_ERROR' }, { status: 400 })
+      }
+      return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 })
     }
 
-    const credentialInput = String(usernameOrEmail).trim()
+    const credentialInput = parsed.identifier.trim()
+    const password = parsed.password
 
     const db = admin.firestore()
 

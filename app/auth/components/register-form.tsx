@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { authI18n, AuthLang } from '@/lib/i18n/auth'
 
 interface RegisterFormProps {
@@ -46,16 +46,16 @@ export function RegisterForm({ language, isLoading, setIsLoading }: RegisterForm
       const r = await fetch('/api/auth/register',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, restaurant_name: restaurantName, email, password, language: defaultLanguage })})
       const j = await r.json()
       if(j.success){
-        toast.success(t.registerSuccess)
+        notify({ type:'auth.register.success' })
         window.location.href = '/admin/dashboard'
       }
       else {
         setErrors({general: j.error})
-        toast.error(j.error || t.invalidCredentials)
+        notify({ type:'auth.register.error' })
       }
     } catch {
       setErrors({general: t.invalidCredentials})
-      toast.error(t.invalidCredentials)
+      notify({ type:'auth.register.error' })
     } finally { setIsLoading(false) }
   }
 

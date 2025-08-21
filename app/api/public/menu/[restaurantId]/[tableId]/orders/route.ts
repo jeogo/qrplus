@@ -1,37 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AppError, ValidationError, ConflictError, NotFoundError } from '@/lib/errors'
+import { toErrorResponse } from '@/lib/api/error-handler'
 import admin from '@/lib/firebase/admin'
 import { nextSequence } from '@/lib/firebase/sequences'
 import { mirrorOrderCreate } from '@/lib/mirror'
 import { sendOrderNewPush } from '@/lib/notifications/push-sender'
+import { resolveTable } from '@/lib/tables/resolve-table'
 import { nextDailySequence, getUtcDateKey } from '@/lib/orders/daily-sequence'
 
 // POST /api/public/menu/:restaurantId/:tableId/orders
 export async function POST(
   req: NextRequest,
-  { params }: { params: { restaurantId: string; tableId: string } }
+  context: { params: Promise<{ restaurantId: string; tableId: string }> }
 ) {
   try {
-    const restaurantIdNum = Number(params.restaurantId)
-    const tableIdNum = Number(params.tableId)
-    if (!Number.isInteger(restaurantIdNum) || !Number.isInteger(tableIdNum)) {
-      return NextResponse.json({ success: false, error: 'NOT_FOUND' }, { status: 404 })
-    }
+    const { restaurantId, tableId } = await context.params
+    const restaurantIdNum = Number(restaurantId)
+    const tableIdNum = Number(tableId)
+  if (!Number.isInteger(restaurantIdNum) || !Number.isInteger(tableIdNum)) throw new NotFoundError('NOT_FOUND')
 
     const body = await req.json().catch(() => ({}))
     const itemsInput = Array.isArray(body.items) ? body.items : []
     const rawNote = typeof body.note === 'string' ? body.note : ''
     const note = rawNote.trim().slice(0, 300)
     const hasNote = note.length > 0
-    if (!itemsInput.length || itemsInput.length > 40)
-      return NextResponse.json({ success: false, error: 'INVALID_ITEMS' }, { status: 400 })
+  if (!itemsInput.length || itemsInput.length > 40) throw new ValidationError('INVALID_ITEMS')
 
     const normalized: { product_id: number; quantity: number }[] = []
     for (const raw of itemsInput) {
       const pid = Number(raw?.product_id)
       const qty = Number(raw?.quantity)
-      if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0 || qty > 50) {
-        return NextResponse.json({ success: false, error: 'INVALID_ITEMS' }, { status: 400 })
-      }
+  if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0 || qty > 50) throw new ValidationError('INVALID_ITEMS')
       normalized.push({ product_id: pid, quantity: qty })
     }
 
@@ -41,14 +40,10 @@ export async function POST(
 
     const db = admin.firestore()
     const accountSnap = await db.collection('accounts').doc(String(restaurantIdNum)).get()
-    if (!accountSnap.exists || accountSnap.data()?.active === false)
-      return NextResponse.json({ success: false, error: 'SYSTEM_INACTIVE' }, { status: 423 })
+  if (!accountSnap.exists || accountSnap.data()?.active === false) throw new AppError('System inactive',423,'SYSTEM_INACTIVE')
 
-    const tableSnap = await db.collection('tables').doc(String(tableIdNum)).get()
-    if (!tableSnap.exists) return NextResponse.json({ success: false, error: 'TABLE_NOT_FOUND' }, { status: 404 })
-    const tableData = tableSnap.data()!
-    if (tableData.account_id !== restaurantIdNum)
-      return NextResponse.json({ success: false, error: 'MISMATCH' }, { status: 404 })
+  const resolved = await resolveTable(restaurantIdNum, tableIdNum)
+  if (!resolved) throw new NotFoundError('TABLE_NOT_FOUND')
 
     const activeSnap = await db
       .collection('orders')
@@ -59,10 +54,7 @@ export async function POST(
       .get()
     if (!activeSnap.empty) {
       const existing = activeSnap.docs[0].data()
-      return NextResponse.json(
-        { success: false, error: 'ACTIVE_ORDER_EXISTS', data: { order_id: existing.id } },
-        { status: 409 }
-      )
+      throw new ConflictError('ACTIVE_ORDER_EXISTS')
     }
 
     const productIds = uniqueItems.map(i => i.product_id)
@@ -72,8 +64,7 @@ export async function POST(
       const data = d.data()
       if (data.account_id === restaurantIdNum && data.available === true) prodMap.set(data.id, data)
     })
-    if (prodMap.size !== productIds.length)
-      return NextResponse.json({ success: false, error: 'PRODUCT_NOT_FOUND' }, { status: 400 })
+  if (prodMap.size !== productIds.length) throw new ValidationError('PRODUCT_NOT_FOUND')
 
     const now = new Date().toISOString()
     let total = 0
@@ -82,7 +73,7 @@ export async function POST(
       const prod = prodMap.get(it.product_id)!
       const price = Number(prod.price)
       total += price * it.quantity
-      if (total > 1_000_000) return NextResponse.json({ success: false, error: 'TOTAL_LIMIT' }, { status: 400 })
+  if (total > 1_000_000) throw new ValidationError('TOTAL_LIMIT')
       itemsToStore.push({ product_id: it.product_id, product_name: prod.name, quantity: it.quantity, price })
     }
 
@@ -154,6 +145,7 @@ export async function POST(
     return NextResponse.json({ success: true, data: { order: orderDoc, items: itemsToStore } }, { status: 201 })
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.error('[PUBLIC][ORDER_CREATE+RID]', err)
-    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
+    const { status, body } = toErrorResponse(err)
+    return NextResponse.json(body, { status })
   }
 }

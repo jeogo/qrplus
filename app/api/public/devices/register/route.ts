@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
 
 // Public device token registration for client (table) visitors.
-// Body: { token:string, lang:'ar'|'fr', tableId:string|number, accountId?:number }
+// Body: { token:string, lang:'ar'|'fr'|'en', tableId:string|number, accountId?:number }
 // Stores role='client' and associates table/account for filtered pushes.
 export async function POST(req: NextRequest) {
   try {

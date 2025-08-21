@@ -14,7 +14,7 @@ import { useSystemActive } from "@/hooks/use-system-active"
 import { handleSystemInactive } from "@/lib/system-active"
 import { AdminLayout } from "@/components/admin-bottom-nav"
 import { getAdminOrdersTexts } from "@/lib/i18n/admin-orders"
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 
 interface Order { id:number; table_id:number; status:string; total:number; created_at:string; updated_at:string; note?:string; daily_number?:number }
 interface OrderItem { id:number; product_id:number; product_name?:string; quantity:number; price:number }
@@ -22,7 +22,7 @@ interface OrderItem { id:number; product_id:number; product_name?:string; quanti
 export default function AdminOrdersPage() {
   const router = useRouter()
   const language = useAdminLanguage()
-  const L = getAdminOrdersTexts(language === 'ar' ? 'ar' : 'fr')
+  const L = getAdminOrdersTexts(language as 'ar'|'fr'|'en')
   const [orders,setOrders] = useState<Order[]>([])
   const [loading,setLoading] = useState(false)
   const [statusFilter,setStatusFilter] = useState<string>("")
@@ -59,13 +59,11 @@ export default function AdminOrdersPage() {
           .sort((a,b)=> new Date(b.created_at||0).getTime() - new Date(a.created_at||0).getTime())
       })
       setError(null)
-      if (manual) {
-        toast.success(language==='ar'? 'تم التحديث' : 'Actualisé', { description: language==='ar'? 'تم جلب أحدث الطلبات' : 'Commandes à jour' })
-      }
+  if (manual) { notify({ type:'orders.refresh.success' }) }
     } catch (e) {
       console.error('[ORDERS][FETCH] error', e)
-      setError(language==='ar' ? 'فشل تحميل الطلبات' : 'Échec du chargement des commandes')
-      toast.error(language==='ar'? 'فشل التحميل' : 'Échec du chargement')
+  setError(L.orderDeleteFailed)
+  notify({ type:'orders.refresh.error' })
     } finally {
       setLoading(false)
     }
@@ -175,7 +173,7 @@ export default function AdminOrdersPage() {
     try {
       if (!systemActive) { handleSystemInactive(language); return }
       setActionLoading(true)
-      action.start('تحديث الطلب...', 'Mise à jour...')
+  action.start(L.updateOrderProgress, L.updateOrderProgress)
       const res = await fetch(`/api/orders/${id}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ status:newStatus }) })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
@@ -183,13 +181,13 @@ export default function AdminOrdersPage() {
         .map(o => o && o.id === id ? { ...o, status:newStatus, updated_at: json.data.updated_at } : o)
         .filter(o => o && !(o.id === id && newStatus === 'served'))
       )
-      action.success(language==='ar'? 'تم التحديث' : 'Mis à jour', language==='ar'? 'تم التحديث' : 'Mis à jour')
-      toast.success(language==='ar'? 'تم تحديث حالة الطلب' : 'Statut mis à jour')
+  action.success(L.updateOrderSuccess, L.updateOrderSuccess)
+  notify({ type:'orders.status.update.success' })
     } catch (err) {
       console.error('Transition error:', err)
-      setError(language==='ar' ? 'فشل تحديث حالة الطلب' : 'Échec de mise à jour du statut')
-      action.error(language==='ar'? 'فشل العملية' : "Échec", language==='ar'? 'فشل العملية' : "Échec")
-      toast.error(language==='ar'? 'فشل تحديث الطلب' : 'Échec mise à jour')
+    setError(L.statusUpdateFailed)
+  action.error(L.actionFailed, L.actionFailed)
+  notify({ type:'orders.status.update.error' })
     } finally { 
       setActionLoading(false) 
     }
@@ -201,19 +199,19 @@ export default function AdminOrdersPage() {
     try {
       if (!systemActive) { handleSystemInactive(language); return }
       setActionLoading(true)
-      action.start('أرشفة الطلب...', 'Archivage...')
+  action.start(L.archiveOrderProgress, L.archiveOrderProgress)
       const res = await fetch(`/api/orders/${id}`, { method:"DELETE" })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       setOrders(prev => prev.filter(o => o && o.id !== id))
-      action.success(language==='ar'? 'تمت الأرشفة' : 'Archivé', language==='ar'? 'تمت الأرشفة' : 'Archivé')
-      toast.success(language==='ar'? 'تمت الأرشفة' : 'Commande archivée')
+  action.success(L.archiveOrderSuccess, L.archiveOrderSuccess)
+  notify({ type:'orders.archive.success' })
       
     } catch (err) {
       console.error('Delete error:', err)
-      setError(language==='ar' ? 'فشل حذف الطلب' : 'Échec de suppression de la commande')
-      action.error(language==='ar'? 'فشل الأرشفة' : "Échec de l'archivage", language==='ar'? 'فشل الأرشفة' : "Échec de l'archivage")
-      toast.error(language==='ar'? 'فشل الأرشفة' : 'Échec archivage')
+    setError(L.deleteOrderFailed)
+  action.error(L.archiveOrderFailed, L.archiveOrderFailed)
+  notify({ type:'orders.archive.error' })
     } finally { 
       setActionLoading(false) 
     }
@@ -340,7 +338,7 @@ export default function AdminOrdersPage() {
                 </div>
                 <p className="text-slate-500 font-medium">{L.noOrders}</p>
                 <p className="text-slate-400 text-sm mt-1">
-                  {language === 'ar' ? 'لا توجد طلبات متاحة حاليا' : 'Aucune commande disponible actuellement'}
+                  {L.noOrders}
                 </p>
               </div>
             )}

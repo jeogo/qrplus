@@ -11,7 +11,7 @@ import { useState } from 'react'
 
 interface RestaurantSettingsPartial {
   restaurant_name: string;
-  language: 'ar' | 'fr';
+  language: 'ar' | 'fr' | 'en';
   currency: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD';
   address?: string | null;
   phone?: string | null;
@@ -42,7 +42,7 @@ interface SettingsTexts {
 
 interface Props {
   settings: RestaurantSettingsPartial
-  language: 'ar' | 'fr'
+  language: 'ar' | 'fr' | 'en'
   L: SettingsTexts
   disabled: boolean
   uploading: boolean
@@ -93,6 +93,7 @@ export function RestaurantInfoForm({ settings, language, L, disabled, uploading,
                 <SelectContent>
                   <SelectItem value="ar">{L.arabic}</SelectItem>
                   <SelectItem value="fr">{L.french}</SelectItem>
+                  <SelectItem value="en">EN</SelectItem>
                 </SelectContent>
               </Select>
             </div>

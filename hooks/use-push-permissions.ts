@@ -14,7 +14,7 @@ export type PushPermissionState = 'default' | 'granted' | 'denied'
 interface UsePushPermissionsOptions {
   autoRegister?: boolean // attempt registration on mount if granted
   role?: string | null
-  lang?: 'ar' | 'fr'
+  lang?: 'ar' | 'fr' | 'en'
 }
 
 export function usePushPermissions(opts: UsePushPermissionsOptions = {}) {

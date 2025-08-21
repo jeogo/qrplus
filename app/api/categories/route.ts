@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import { nextSequence } from '@/lib/firebase/sequences'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { categoryCreateSchema } from '@/schemas/categories'
 
 export async function GET(req: NextRequest) {
   try {
-    const sess = await requireSession()
+  const sess = await requirePermission('categories','read')
     const accountIdNum =
       typeof sess.accountNumericId === 'number'
         ? sess.accountNumericId
@@ -56,13 +58,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      )
-    }
+  const sess = await requirePermission('categories','create')
 
     const accountIdNum =
       typeof sess.accountNumericId === 'number'
@@ -76,35 +72,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const name = toTrimmed(body.name)
-    if (!name) {
-      return NextResponse.json(
-        { success: false, error: 'Name required' },
-        { status: 422 }
-      )
-    }
-
-    const description = toOptional(body.description)
-    const image_url = toTrimmed(body.image_url)
-    if (!image_url) {
-      return NextResponse.json(
-        { success: false, error: 'image_url required' },
-        { status: 422 }
-      )
-    }
-
-    const active = typeof body.active === 'boolean' ? body.active : true
+  const { data, response } = await parseJsonBody(req, categoryCreateSchema)
+  if (response) return response
+  const input = data!
     const id = await nextSequence('categories')
     const now = new Date().toISOString()
 
     const doc = {
       id,
       account_id: accountIdNum,
-      name,
-      description,
-      image_url,
-      active,
+      name: input.name,
+      description: input.description,
+      image_url: input.image_url,
+      active: input.active ?? true,
       created_at: now,
       updated_at: now,
     }
@@ -117,14 +97,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function toTrimmed(v: unknown): string | null {
-  return typeof v === 'string' ? v.trim() || null : null
-}
-
-function toOptional(v: unknown): string | undefined {
-  const t = toTrimmed(v)
-  return t === null ? undefined : t
-}
+// removed unused trim helpers
 
 interface AppError {
   status?: number

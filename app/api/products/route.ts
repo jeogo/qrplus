@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import { nextSequence } from '@/lib/firebase/sequences'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { productCreateSchema } from '@/schemas/products'
 
 // GET /api/products?category_id=&q=&limit=
 export async function GET(req: NextRequest) {
   try {
-    const sess = await requireSession()
+  const sess = await requirePermission('products','read')
     const url = new URL(req.url)
     const categoryIdRaw = url.searchParams.get('category_id')
     const qParam = (url.searchParams.get('q') || '').trim().toLowerCase()
@@ -46,50 +48,30 @@ export async function GET(req: NextRequest) {
 // POST /api/products
 export async function POST(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
+    const sess = await requirePermission('products','create')
+    const { data, response } = await parseJsonBody(req, productCreateSchema)
+    if (response) return response
+    const input = data!
 
-    const body = await req.json()
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     }
 
-    const name = toTrimmed(body.name)
-    if (!name) return NextResponse.json({ success: false, error: 'Name required' }, { status: 422 })
-
-    const category_id = Number(body.category_id)
-    if (!Number.isInteger(category_id) || category_id < 1) {
-      return NextResponse.json({ success: false, error: 'Category_id required' }, { status: 422 })
-    }
-
-    const price = Number(body.price)
-    if (!Number.isFinite(price) || price < 0) {
-      return NextResponse.json({ success: false, error: 'Price invalid' }, { status: 422 })
-    }
-
-    const description = toOptional(body.description)
-    const image_url = toOptional(body.image_url) || ''
-    const available = typeof body.available === 'boolean' ? body.available : true
-
     const id = await nextSequence('products')
     const now = admin.firestore.Timestamp.now()
-
     const doc = {
       id,
       account_id: accountIdNum,
-      category_id,
-      name,
-      description,
-      image_url,
-      price,
-      available,
+      category_id: input.category_id,
+      name: input.name,
+      description: input.description,
+      image_url: input.image_url || '',
+      price: input.price,
+      available: input.available ?? true,
       created_at: now,
       updated_at: now,
     }
-
     await admin.firestore().collection('products').doc(String(id)).set(doc)
     return NextResponse.json({ success: true, data: doc }, { status: 201 })
   } catch (err) {
@@ -97,13 +79,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function toTrimmed(v: unknown): string | null {
-  return typeof v === 'string' ? v.trim() || null : null
-}
-function toOptional(v: unknown): string | undefined {
-  const t = toTrimmed(v)
-  return t === null ? undefined : t
-}
+// removed unused trim helpers
 
 interface AppError { status?: number }
 function handleError(err: unknown) {

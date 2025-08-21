@@ -12,6 +12,18 @@ export function formatPrice(price: number): string {
     minimumFractionDigits: 0
   }).format(price)
 }
+// Localized currency formatter with language-aware locale selection and safe fallback
+export function formatCurrencyLocalized(value: number, currency: string, language: 'ar' | 'fr' | 'en', opts: { minimumFractionDigits?: number } = {}): string {
+  const minimumFractionDigits = opts.minimumFractionDigits ?? 2
+  const locale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-DZ' : 'en-US'
+  try {
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits }).format(value)
+  } catch {
+    // Fallback basic formatting
+    const symbol = currency === 'DZD' ? (language === 'ar' ? 'دج' : 'DZD') : currency
+    return `${value.toFixed(minimumFractionDigits)} ${symbol}`
+  }
+}
  export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',

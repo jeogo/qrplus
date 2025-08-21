@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import admin from '@/lib/firebase/admin'
 import { getUtcDateKey } from '@/lib/orders/daily-sequence'
 
@@ -7,8 +7,7 @@ import { getUtcDateKey } from '@/lib/orders/daily-sequence'
 // Returns current stored value and next value (without incrementing)
 export async function GET(req: NextRequest){
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success:false, error:'Forbidden' }, { status:403 })
+  const sess = await requirePermission('maintenance','special')
     const { searchParams } = new URL(req.url)
     const accountIdParam = searchParams.get('account_id')
     const accountId = accountIdParam ? Number(accountIdParam) : (typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId))

@@ -6,13 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { getAdminUsersTexts } from '@/lib/i18n/admin-users'
 import { ReactNode } from 'react'
 
 export interface UserDialogProps {
   open: boolean
   onOpenChange: (v:boolean)=>void
   editing: boolean
-  language: string
+  language: 'ar' | 'fr' | 'en'
   saving: boolean
   formData: {
     username: string
@@ -31,13 +32,14 @@ export interface UserDialogProps {
 }
 
 export function UserDialog({ open, onOpenChange, editing, language, saving, formData, setFormData, t, onRoleChange, onPermissionChange, onRequestSave, extraFooter }: UserDialogProps){
+  const L = getAdminUsersTexts(language)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] animate-scale-in">
         <DialogHeader>
           <DialogTitle>{editing ? t.editUser : t.addUser}</DialogTitle>
           <DialogDescription>
-            {editing ? (language==='ar'? 'قم بتحديث معلومات المستخدم وحفظ التغييرات':'Mettez à jour les informations de l\'utilisateur puis enregistrez') : (language==='ar'? 'أدخل بيانات المستخدم الجديد ثم احفظ':'Renseignez les détails du nouvel utilisateur puis enregistrez')}
+            {editing ? L.editDialogDescription : L.createDialogDescription}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

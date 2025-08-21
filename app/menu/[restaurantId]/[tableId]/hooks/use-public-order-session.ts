@@ -7,11 +7,13 @@ export interface PublicProduct { id:number; name:string; name_ar?:string; name_f
 export interface CartItem { id:number; name_ar:string; name_fr:string; price:number; quantity:number; image:string }
 export type OrderStatus = 'pending'|'accepted'|'preparing'|'ready'|'served'
 export interface Order { id:number; table_id:string; status:OrderStatus; total_amount:number; created_at:string; items:{ product_id:number; quantity:number; price:number; product_name:string }[] }
-export interface RestaurantMeta { id:number; restaurant_name:string; logo_url?:string; language:'ar'|'fr'; currency:string; is_active:boolean }
+export interface RestaurantMeta { id:number; restaurant_name:string; logo_url?:string; language:'ar'|'fr'|'en'; currency:string; is_active:boolean }
 
 interface UsePublicOrderSessionArgs { restaurantId:string; tableId:string }
 
 export function usePublicOrderSession({ restaurantId, tableId }:UsePublicOrderSessionArgs){
+  // NOTE: tableId here refers to the public table_number (dense per account) not the internal Firestore doc id.
+  // Internal numeric id is still embedded in QR at creation time but we now rewrite QR to use table_number.
   const [meta,setMeta] = useState<RestaurantMeta|null>(null)
   const [categories,setCategories] = useState<PublicCategory[]>([])
   const [products,setProducts] = useState<PublicProduct[]>([])

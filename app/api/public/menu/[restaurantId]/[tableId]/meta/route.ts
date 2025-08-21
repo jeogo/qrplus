@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
+import { resolveTable } from '@/lib/tables/resolve-table'
 
 // GET /api/public/menu/:restaurantId/:tableId/meta
 export async function GET(
@@ -27,15 +28,9 @@ export async function GET(
     }
     const accountData = accountSnap.data()!
 
-    // تحقق من الطاولة
-    const tableSnap = await db.collection('tables').doc(String(tableIdNum)).get()
-    if (!tableSnap.exists) {
-      return NextResponse.json({ success: false, error: 'TABLE_NOT_FOUND' }, { status: 404 })
-    }
-    const tableData = tableSnap.data()!
-    if (tableData.account_id !== restaurantIdNum) {
-      return NextResponse.json({ success: false, error: 'MISMATCH' }, { status: 404 })
-    }
+  const resolved = await resolveTable(restaurantIdNum, tableIdNum)
+  if (!resolved) return NextResponse.json({ success: false, error: 'TABLE_NOT_FOUND' }, { status: 404 })
+  const table_number = resolved.table_number
 
     // جلب إعدادات النظام
     const settingsSnap = await db
@@ -44,7 +39,7 @@ export async function GET(
       .limit(1)
       .get()
 
-    let settingsData: { logo_url?: string; language?: 'ar' | 'fr'; currency?: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD' } = {}
+  let settingsData: { logo_url?: string; language?: 'ar' | 'fr' | 'en'; currency?: 'USD' | 'EUR' | 'MAD' | 'TND' | 'DZD' } = {}
 
     if (!settingsSnap.empty) {
       const docData = settingsSnap.docs[0].data()
@@ -62,6 +57,7 @@ export async function GET(
       language: settingsData.language || 'ar',
       address: accountData.address || '',
       phone: accountData.phone || '',
+      table_number: typeof table_number === 'number' ? table_number : undefined,
     }
 
     return NextResponse.json({ success: true, data })

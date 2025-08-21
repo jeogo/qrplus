@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 import { nextSequence } from '@/lib/firebase/sequences'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { tableCreateSchema } from '@/schemas/tables'
+import { logger } from '@/lib/observability/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,7 +12,7 @@ export const dynamic = 'force-dynamic'
 // GET /api/tables - list tables for the authenticated account
 export async function GET() {
   try {
-    const sess = await requireSession()
+  const sess = await requirePermission('tables','read')
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
@@ -31,47 +34,58 @@ export async function GET() {
 // POST /api/tables - create a new table
 export async function POST(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
+    const sess = await requirePermission('tables','create')
+    const { data, response } = await parseJsonBody(req, tableCreateSchema)
+    if (response) return response
+    const input = data!
 
     const accountIdNum = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountIdNum)) {
       return NextResponse.json({ success: false, error: 'Account missing' }, { status: 400 })
     }
 
-    const body = await req.json()
-    const table_number = Number(body.table_number)
-    if (!Number.isInteger(table_number) || table_number < 1) {
-      return NextResponse.json({ success: false, error: 'INVALID_TABLE_NUMBER' }, { status: 400 })
-    }
-
-    // Ensure table number is unique per account
-    const existingSnap = await admin.firestore()
-      .collection('tables')
-      .where('account_id', '==', accountIdNum)
-      .where('table_number', '==', table_number)
-      .limit(1)
-      .get()
-
-    if (!existingSnap.empty) {
-      return NextResponse.json({ success: false, error: 'TABLE_NUMBER_EXISTS' }, { status: 409 })
-    }
-
+    const db = admin.firestore()
     const id = await nextSequence('tables')
     const now = new Date().toISOString()
-
-    // Build QR code URL
-    const host = body.__host_override || (req.headers.get('x-forwarded-host') || req.headers.get('host'))
+    const host = input.__host_override || (req.headers.get('x-forwarded-host') || req.headers.get('host'))
     const proto = req.headers.get('x-forwarded-proto') || 'https'
     const origin = host ? `${proto}://${host}` : ''
-    const qr_code = `${origin}/menu/${accountIdNum}/${id}`
+  // We display /menu/:restaurantId/:tableNumber publicly; fallback to internal id was removed
 
-    const doc = { id, account_id: accountIdNum, table_number, qr_code, created_at: now, updated_at: now }
-    await admin.firestore().collection('tables').doc(String(id)).set(doc)
+    // Assign table_number: use provided or smallest missing positive
+    let assignedNumber = input.table_number
+  if (!assignedNumber) {
+      await db.runTransaction(async tx => {
+        // Re-query inside transaction for race safety
+        const snap = await tx.get(db.collection('tables').where('account_id','==', accountIdNum))
+        const used = new Set<number>()
+        snap.docs.forEach(d=>{
+          const tn = (d.data() as { table_number?: number }).table_number
+            if (typeof tn === 'number' && tn > 0) used.add(tn)
+        })
+        // Find smallest missing positive integer
+        let candidate = 1
+        while (used.has(candidate)) candidate++
+        assignedNumber = candidate
+  const doc = { id, account_id: accountIdNum, table_number: assignedNumber, qr_code: `${origin}/menu/${accountIdNum}/${assignedNumber}`, created_at: now, updated_at: now }
+        tx.set(db.collection('tables').doc(String(id)), doc)
+      })
+    } else {
+      // Provided: ensure uniqueness
+      const existingSnap = await db.collection('tables')
+        .where('account_id', '==', accountIdNum)
+        .where('table_number', '==', assignedNumber)
+        .limit(1)
+        .get()
+      if (!existingSnap.empty) {
+        return NextResponse.json({ success: false, error: 'TABLE_NUMBER_EXISTS' }, { status: 409 })
+      }
+      const doc = { id, account_id: accountIdNum, table_number: assignedNumber, qr_code: `${origin}/menu/${accountIdNum}/${assignedNumber}`, created_at: now, updated_at: now }
+      await db.collection('tables').doc(String(id)).set(doc)
+    }
 
-    return NextResponse.json({ success: true, data: doc }, { status: 201 })
+    logger.info({ msg:'table.created', accountId: accountIdNum, tableId: id, table_number: assignedNumber })
+    return NextResponse.json({ success: true, data: { id, account_id: accountIdNum, table_number: assignedNumber, qr_code: `${origin}/menu/${accountIdNum}/${assignedNumber}`, created_at: now, updated_at: now } }, { status: 201 })
   } catch (err) {
     return handleError(err, 'POST')
   }

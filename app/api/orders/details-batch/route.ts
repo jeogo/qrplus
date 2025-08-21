@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
 
 // POST /api/orders/details-batch  Body: { ids:number[] }
 export async function POST(req: NextRequest) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin' && sess.role !== 'waiter' && sess.role !== 'kitchen') {
-      return NextResponse.json({ success:false, error:'Forbidden' }, { status:403 })
-    }
+  const sess = await requirePermission('orders.details','read')
     const accountId = typeof sess.accountNumericId === 'number' ? sess.accountNumericId : Number(sess.accountId)
     if (!Number.isFinite(accountId)) return NextResponse.json({ success:false, error:'Account missing' }, { status:400 })
     const body = await req.json()
@@ -48,3 +45,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success:false, error:'Server error' }, { status:500 })
   }
 }
+
+

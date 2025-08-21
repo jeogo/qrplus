@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import admin from '@/lib/firebase/admin'
-import { requireSession } from '@/lib/auth/session'
+import { requirePermission } from '@/lib/auth/session'
+import { parseJsonBody } from '@/lib/validation/parse'
+import { tableUpdateSchema } from '@/schemas/tables'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // PATCH /api/tables/:id - update table_number
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+// Next.js 15: params is a Promise
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-
-    const idNum = Number(params.id)
+  await requirePermission('tables','update')
+  const { id } = await context.params
+  const idNum = Number(id)
     if (!Number.isInteger(idNum) || idNum < 1) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
 
-  const body: { table_number?: unknown } = await req.json()
+  const { data: bodyData, response } = await parseJsonBody(req, tableUpdateSchema)
+  if (response) return response
   const updates: Partial<{ table_number: number; updated_at: string }> = {}
+  if (bodyData?.table_number !== undefined) updates.table_number = bodyData.table_number
   // Hold snapshot for later merge
   let currentSnap: FirebaseFirestore.DocumentSnapshot | null = null
 
-    if (body.table_number !== undefined) {
-      const newNum = Number(body.table_number)
+    if (bodyData?.table_number !== undefined) {
+      const newNum = Number(bodyData.table_number)
       if (!Number.isInteger(newNum) || newNum < 1) return NextResponse.json({ success: false, error: 'INVALID_TABLE_NUMBER' }, { status: 400 })
 
       // Load current table to get account_id
@@ -54,21 +58,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       const snap = await admin.firestore().collection('tables').doc(String(idNum)).get()
       baseData = snap.data() || {}
     }
-    const data = { ...baseData, ...updates }
+  const merged = { ...baseData, ...updates }
 
-    return NextResponse.json({ success: true, data })
+  return NextResponse.json({ success: true, data: merged })
   } catch (err) {
     return handleError(err, 'PATCH')
   }
 }
 
 // DELETE /api/tables/:id - delete table
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const sess = await requireSession()
-    if (sess.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-
-    const idNum = Number(params.id)
+  await requirePermission('tables','delete')
+  const { id } = await context.params
+  const idNum = Number(id)
     if (!Number.isInteger(idNum) || idNum < 1) return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 })
 
     const ref = admin.firestore().collection('tables').doc(String(idNum))

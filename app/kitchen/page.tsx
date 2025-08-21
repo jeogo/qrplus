@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { AdminHeader, useAdminLanguage } from '@/components/admin-header'
 import { getKitchenTexts } from '@/lib/i18n/kitchen'
 import { useSession } from '@/hooks/use-session'
-import { toast } from 'sonner'
+import { notify } from '@/lib/notifications/facade'
 import { KitchenOrdersList, KitchenStatsHeader, useKitchenOrders, KitchenLoadingSkeleton } from './components'
 import { logout } from '@/lib/auth/session-client'
 import { LogOut } from 'lucide-react'
@@ -55,17 +55,17 @@ export default function KitchenPage(){
         {loading ? <KitchenLoadingSkeleton /> : (
           <KitchenOrdersList
             orders={activeOrders}
-            language={language as 'ar'|'fr'}
+            language={language as 'ar'|'fr'|'en'}
             t={t}
             formatTimeAgo={formatTimeAgo}
-            onMarkReady={async (id:number)=> { const ok = await markReady(id); if (ok) { toast.success(t.markedReadySuccess) } else { toast.error(t.markedReadyFail) } }}
-            onCancel={async (id:number)=> { const ok = await cancel(id); if (ok) { toast.success(t.cancelledSuccess) } else { toast.error(t.cancelledFail) } }}
+            onMarkReady={async (id:number)=> { const ok = await markReady(id); if (ok) { notify({ type:'kitchen.order.markReady.success' }) } else { notify({ type:'kitchen.order.markReady.error' }) } }}
+            onCancel={async (id:number)=> { const ok = await cancel(id); if (ok) { notify({ type:'kitchen.order.cancel.success' }) } else { notify({ type:'kitchen.order.cancel.error' }) } }}
           />
         )}
         <button
-          onClick={async ()=> { const ok = await logout(); if (ok) { toast.success(language==='ar'? 'تم تسجيل الخروج':'Déconnecté'); window.location.href='/auth' } else { toast.error(language==='ar'? 'فشل تسجيل الخروج':'Échec déconnexion') } }}
+          onClick={async ()=> { const ok = await logout(); if (ok) { notify({ type:'logout.success' }); window.location.href='/auth' } else { notify({ type:'logout.error' }) } }}
           className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg w-14 h-14 flex items-center justify-center focus:outline-none"
-          aria-label={language==='ar'? 'تسجيل الخروج':'Logout'}
+          aria-label={t.logout || 'Logout'}
         >
           <LogOut className="h-6 w-6" />
         </button>
