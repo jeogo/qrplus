@@ -3,12 +3,12 @@
     "next/core-web-vitals",
     "next/typescript"
   ],
-  "plugins": ["local-rules"],
+  "plugins": [],
   "settings": {
     "import/resolver": {}
   },
   "rules": {
-    "local-rules/no-direct-sonner": "error",
+    "no-restricted-imports": ["error", { "paths": [{ "name": "sonner", "message": "Use notify facade instead of direct sonner import" }] }],
     "@typescript-eslint/no-explicit-any": "warn"
   },
   "overrides": [
