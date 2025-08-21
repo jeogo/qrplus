@@ -319,8 +319,7 @@ export default function TablesAdminPage() {
             adding={adding}
             editing={editing}
             initialNumber={editingTable?.table_number ?? null}
-            texts={{ addTable: L.addTable, editTable: L.editTable, tableNumber: L.tableNumber, tableName: L.tableName, save: L.save, cancel: L.cancel, adding: L.adding || '', updating: L.updating || '' }}
-            language={language}
+            texts={{ addTable: L.addTable, editTable: L.editTable, tableNumber: L.tableNumber, tableName: L.tableName, save: L.save, cancel: L.cancel, adding: L.adding || '', updating: L.updating || '', instructions: L.instructions }}
           />
           <SaveConfirmDialog
             open={confirmSaveOpen}
