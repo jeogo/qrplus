@@ -1,4 +1,10 @@
-import { defaultNotificationPreferences as legacyDefaults } from './config'
+const legacyDefaults = {
+  roles: {
+    admin: { newOrder: true, approved: true, ready: true, served: true, cancelled: true },
+    kitchen: { newOrder: true, approved: true, ready: true, cancelled: true },
+    waiter: { ready: true, served: true, cancelled: true }
+  }
+}
 export interface UnifiedNotificationPreferences { ui:{ enableToasts:boolean; durationMs:number }; sound:{ enabled:boolean; volume:number }; dedupe:{ windowActionMs:number; windowDomainMs:number }; roles: typeof legacyDefaults.roles; categories:{ action:boolean; domain:boolean; system:boolean; error:boolean; progress:boolean } }
 const V2_KEY='notification_prefs_v2', V3_KEY='notification_prefs_v3'
 const defaultPrefs: UnifiedNotificationPreferences = { ui:{ enableToasts:true, durationMs:5000 }, sound:{ enabled:true, volume:1 }, dedupe:{ windowActionMs:1500, windowDomainMs:8000 }, roles: legacyDefaults.roles, categories:{ action:true, domain:true, system:true, error:true, progress:true } }
