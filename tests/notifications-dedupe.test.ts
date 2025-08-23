@@ -3,7 +3,6 @@ import { notify } from '@/lib/notifications/facade'
 
 // Mock adapters
 vi.mock('@/lib/notifications/adapters/sonner', () => ({ showToast: vi.fn() }))
-vi.mock('@/lib/notifications/adapters/push', () => ({ sendPush: vi.fn() }))
 vi.mock('@/lib/notifications/preferences', () => ({
   loadUnifiedPrefs: () => ({
     ui: { enableToasts: true, durationMs: 1000 },

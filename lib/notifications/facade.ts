@@ -3,7 +3,6 @@ import { shouldDedupe } from './dedupe'
 import { playSound } from './sound'
 import { loadUnifiedPrefs } from './preferences'
 import { showToast } from './adapters/sonner'
-import { sendPush } from './adapters/push'
 
 export interface NotifyInput<T extends NotificationType = NotificationType>{ type:T; data?: any; dedupeKey?: string; override?: Partial<Pick<ResolvedNotification,'message'|'severity'|'sticky'>> }
 export interface ResolvedNotificationMeta { dedupeKey?: string; dedupeMs?:number; source?:string }
@@ -33,7 +32,6 @@ export function notify<T extends NotificationType>(input: NotifyInput<T>): Resol
 	const resolved: ResolvedNotification = { type: input.type, message: msg, severity, category:def.category, sticky, sound:soundEnabled, meta:{ dedupeKey, dedupeMs, source:'app' }, data };
 	if(soundEnabled) playSound();
 	showToast({ message: msg, severity, sticky });
-	sendPush(resolved);
 	telemetryCb?.(resolved);
 	return resolved;
 }
