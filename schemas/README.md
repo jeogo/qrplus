@@ -17,7 +17,6 @@ schemas/
   products.ts    (productCreateSchema, productUpdateSchema)
   categories.ts  (categoryCreateSchema, categoryUpdateSchema)
   settings.ts    (settingsUpdateSchema)
-  devices.ts     (deviceRegisterSchema)
   shared.ts      (common reusable primitives: id, language, currency ...)
 ```
 
