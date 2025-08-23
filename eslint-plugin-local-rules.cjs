@@ -1,2 +1,2 @@
-// Bridge module so ESLint can resolve 'eslint-plugin-local-rules'
-module.exports = require('./eslint-rules');
+// Legacy local ESLint plugin removed. File retained empty to avoid stale import errors.
+module.exports = {};
